@@ -1,0 +1,12 @@
+void cmd_help(void);
+void cmd_time(void);
+void cmd_zoom_in(void);
+void cmd_zoom_out(void);
+void cmd_tron(void);
+void cmd_registers(void);
+void cmd_clear(void);
+void cmd_test_cero_division(void);
+void cmd_test_invalid_opcode(void);
+void cmd_cancion(void);
+void cmd_loop_test(void);
+void shell();

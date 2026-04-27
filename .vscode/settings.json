@@ -1,0 +1,15 @@
+{
+    "files.associations": {
+        "naiveconsole.h": "c",
+        "keyboard.h": "c",
+        "stdint.h": "c",
+        "lib.h": "c",
+        "time.h": "c",
+        "interrupts.h": "c",
+        "tron_ai.h": "c"
+    },
+        "files.exclude": {
+        "**/*.o": true,
+        "**/*.bin": true,
+    },
+}
