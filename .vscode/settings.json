@@ -6,7 +6,6 @@
         "lib.h": "c",
         "time.h": "c",
         "interrupts.h": "c",
-        "tron_ai.h": "c"
     },
         "files.exclude": {
         "**/*.o": true,

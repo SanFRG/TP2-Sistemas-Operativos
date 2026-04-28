@@ -1,9 +1,9 @@
 #include <shell.h>
 #include <lib.h>
 #include <test_exceptions.h>
-#include <tron.h>
 #include <sound.h>
 
+#define COLOR_BLACK   0x00000000
 #define BUFFER_SIZE 256
 #define NULL ((void*)0)
 int shell_exit = 0;
@@ -21,7 +21,6 @@ static Command commands[] = {
     {"time", cmd_time},
     {"zoomin", cmd_zoom_in},
     {"zoomout", cmd_zoom_out},
-    {"tron", cmd_tron},
     {"regs", cmd_registers},
     {"clear", cmd_clear},
     {"cerodiv", cmd_test_cero_division},
@@ -78,7 +77,6 @@ void cmd_help(void) {
     println("  time       - Muestra la fecha y hora actual");
     println("  zoomin     - Aumenta el zoom del texto");
     println("  zoomout    - Disminuye el zoom del texto");
-    println("  tron       - Inicia el juego TRON");
     println("  regs       - Muestra los registros guardados");
     println("  cerodiv    - Ejecuta la division por cero");
     println("  invalido   - Dispara excepcion por opcode invalido");
@@ -127,12 +125,6 @@ void cmd_zoom_out(void) {
     } else {
         println("Zoom minimo alcanzado");
     }
-}
-
-void cmd_tron(void) {
-    tron_game();
-    // When the game exits, clear screen and return to shell
-    clear_screen(0x00000000);           
 }
 
 void cmd_registers(void) {
