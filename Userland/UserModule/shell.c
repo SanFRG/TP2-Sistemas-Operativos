@@ -19,6 +19,8 @@ typedef struct {
 static Command commands[] = {
     {"help", cmd_help},
     {"time", cmd_time},
+    {"mem", cmd_mem},
+    {"memtest", cmd_memtest},
     {"regs", cmd_registers},
     {"clear", cmd_clear},
     {"cerodiv", cmd_test_cero_division},
@@ -73,6 +75,8 @@ void cmd_help(void) {
     println("Comandos disponibles:");
     println("  help       - Muestra este mensaje de ayuda");
     println("  time       - Muestra la fecha y hora actual");
+    println("  mem        - Muestra el estado del memory manager");
+    println("  memtest    - Ejecuta alloc/free de prueba para heap_1");
     println("  regs       - Muestra los registros guardados");
     println("  cerodiv    - Ejecuta la division por cero");
     println("  invalido   - Dispara excepcion por opcode invalido");
@@ -104,6 +108,84 @@ void cmd_time(void) {
     print2Digits(hh); print(":");
     print2Digits(mm); print(":");
     print2Digits(ss);
+    print("\n");
+}
+
+void cmd_mem(void) {
+    MemoryStatus status;
+
+    if (mem_status(&status) != 0) {
+        println("Error: no se pudo obtener estado de memoria.");
+        return;
+    }
+
+    println("=== Estado de memoria (heap_1) ===");
+    print("Total bytes: "); printHex(status.total_bytes); print("\n");
+    print("Used bytes:  "); printHex(status.used_bytes); print("\n");
+    print("Free bytes:  "); printHex(status.free_bytes); print("\n");
+    print("Allocs ok:   "); printHex(status.successful_allocations); print("\n");
+    print("Frees ok:    "); printHex(status.successful_frees); print("\n");
+    print("Allocs fail: "); printHex(status.failed_allocations); print("\n");
+}
+
+void cmd_memtest(void) {
+    MemoryStatus before;
+    MemoryStatus after_alloc;
+    MemoryStatus after_free;
+    void *p1;
+    void *p2;
+
+    if (mem_status(&before) != 0) {
+        println("memtest: no se pudo leer estado inicial.");
+        return;
+    }
+
+    p1 = mem_alloc(64);
+    p2 = mem_alloc(256);
+
+    if (mem_status(&after_alloc) != 0) {
+        println("memtest: no se pudo leer estado despues de alloc.");
+        return;
+    }
+
+    if (p1 != 0) {
+        mem_free(p1);
+    }
+    if (p2 != 0) {
+        mem_free(p2);
+    }
+
+    if (mem_status(&after_free) != 0) {
+        println("memtest: no se pudo leer estado final.");
+        return;
+    }
+
+    println("=== memtest (heap_1) ===");
+    print("p1(64)  = "); printHex((uint64_t)p1); print("\n");
+    print("p2(256) = "); printHex((uint64_t)p2); print("\n");
+
+    println("--- before ---");
+    print("used: "); printHex(before.used_bytes);
+    print(" free: "); printHex(before.free_bytes);
+    print(" allocs: "); printHex(before.successful_allocations);
+    print(" frees: "); printHex(before.successful_frees);
+    print(" fails: "); printHex(before.failed_allocations);
+    print("\n");
+
+    println("--- after alloc ---");
+    print("used: "); printHex(after_alloc.used_bytes);
+    print(" free: "); printHex(after_alloc.free_bytes);
+    print(" allocs: "); printHex(after_alloc.successful_allocations);
+    print(" frees: "); printHex(after_alloc.successful_frees);
+    print(" fails: "); printHex(after_alloc.failed_allocations);
+    print("\n");
+
+    println("--- after free ---");
+    print("used: "); printHex(after_free.used_bytes);
+    print(" free: "); printHex(after_free.free_bytes);
+    print(" allocs: "); printHex(after_free.successful_allocations);
+    print(" frees: "); printHex(after_free.successful_frees);
+    print(" fails: "); printHex(after_free.failed_allocations);
     print("\n");
 }
 

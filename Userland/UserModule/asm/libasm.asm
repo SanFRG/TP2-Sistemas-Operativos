@@ -8,6 +8,9 @@ GLOBAL sleep_ticks
 GLOBAL speaker_play
 GLOBAL speaker_stop
 GLOBAL get_regs
+GLOBAL mem_alloc
+GLOBAL mem_free
+GLOBAL mem_status
 GLOBAL _hlt
 GLOBAL _cli
 GLOBAL _sti
@@ -24,7 +27,10 @@ SYS_SLEEP equ 6
 SYS_SPEAKER_PLAY equ 7
 SYS_SPEAKER_STOP equ 8
 SYS_GET_REGS equ 9
-SYS_COUNT equ 10
+SYS_MEM_ALLOC equ 10
+SYS_MEM_FREE equ 11
+SYS_MEM_STATUS equ 12
+SYS_COUNT equ 13
 
 ; Macro para syscall via int 0x80
 ; %1 = número de syscall
@@ -81,6 +87,21 @@ speaker_stop:
 ; rdi = buffer pointer
 get_regs:
     SYSCALL SYS_GET_REGS
+
+; void *mem_alloc(uint64_t size)
+; rdi = size
+mem_alloc:
+    SYSCALL SYS_MEM_ALLOC
+
+; uint64_t mem_free(void *ptr)
+; rdi = ptr
+mem_free:
+    SYSCALL SYS_MEM_FREE
+
+; uint64_t mem_status(MemoryStatus *status)
+; rdi = status pointer
+mem_status:
+    SYSCALL SYS_MEM_STATUS
 
 _hlt:
 	sti

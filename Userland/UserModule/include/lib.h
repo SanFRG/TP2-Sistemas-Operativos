@@ -14,7 +14,10 @@ enum {
     SYS_SPEAKER_PLAY = 7,
     SYS_SPEAKER_STOP = 8,
     SYS_GET_REGS = 9,
-    SYS_COUNT = 10
+    SYS_MEM_ALLOC = 10,
+    SYS_MEM_FREE = 11,
+    SYS_MEM_STATUS = 12,
+    SYS_COUNT = 13
 };
 
 // Register snapshot structure (must match kernel ExceptionFrame)
@@ -23,6 +26,15 @@ typedef struct {
     uint64_t rsi, rdi, rbp, rdx, rcx, rbx, rax;
     uint64_t rip, cs, rflags, rsp, ss;
 } RegisterSnapshot;
+
+typedef struct {
+    uint64_t total_bytes;
+    uint64_t used_bytes;
+    uint64_t free_bytes;
+    uint64_t successful_allocations;
+    uint64_t successful_frees;
+    uint64_t failed_allocations;
+} MemoryStatus;
 
 // Syscall wrappers (implemented in asm/libasm.asm)
 extern uint64_t read(char* buffer, int max_len);
@@ -35,6 +47,9 @@ extern void sleep_ticks(int ticks);  // Sleep for specified number of ticks
 extern uint64_t speaker_play(uint32_t frequency);  // Play sound on PC speaker (Hz)
 extern uint64_t speaker_stop(void);  // Stop PC speaker sound
 extern uint64_t get_regs(RegisterSnapshot* buffer);  // Get CPU registers snapshot
+extern void *mem_alloc(uint64_t size);
+extern uint64_t mem_free(void *ptr);
+extern uint64_t mem_status(MemoryStatus *status);
 
 extern void trigger_invalid_opcode(void);  // Trigger Invalid Opcode exception (for testing)
 

@@ -6,6 +6,7 @@
 #include <keyboard.h>
 #include <idtLoader.h>
 #include <interrupts.h>
+#include <mm.h>
 
 extern uint8_t text;
 extern uint8_t rodata;
@@ -18,6 +19,11 @@ static const uint64_t PageSize = 0x1000;
 
 static void * const userCodeModuleAddress = (void*)0x400000;
 static void * const userDataModuleAddress = (void*)0x500000;
+static const uint64_t heapAlignment = 8;
+
+static uint64_t align_up(uint64_t value, uint64_t alignment) {
+	return (value + alignment - 1) & ~(alignment - 1);
+}
 
 typedef int (*EntryPoint)();
 
@@ -84,8 +90,18 @@ void * initializeKernelBinary()
 }
 
 int main(){
+	uint64_t heap_start = align_up((uint64_t)&endOfKernel, heapAlignment);
+	uint64_t heap_end = (uint64_t)userCodeModuleAddress;
+
 	// Inicializar interrupciones
 	load_idt();
+	
+	/* Reserve memory between end of kernel and user module for heap_1. */
+	if (heap_end > heap_start) {
+		mm_init((void *)heap_start, heap_end - heap_start);
+	} else {
+		mm_init((void *)heap_start, 0);
+	}
 
 	// Iniciar userland (shell)
 	((EntryPoint)userCodeModuleAddress)();

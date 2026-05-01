@@ -62,6 +62,8 @@ static void print_register_pair(const char* name1, uint64_t val1,
     (*y)++;
 }
 
+
+///ESTO CREEMOS QUE HAY QUE FLETARLO.
 void print_registers_graphic(RegisterFrame *frame, int x, int *y, uint32_t color, int scale) {
     (void)x;
     (void)color;

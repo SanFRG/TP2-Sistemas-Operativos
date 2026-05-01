@@ -9,6 +9,7 @@
 #include <reg_printer.h>
 #include <exceptions.h>
 #include <textConsole.h>
+#include <mm.h>
 
 // Variables externas desde interrupts.asm
 extern RegisterFrame user_snapshot;
@@ -26,7 +27,10 @@ void* syscall_table[SYS_COUNT] = {
     &sys_sleep,          // 6: SYS_SLEEP
     &sys_speaker_play,   // 7: SYS_SPEAKER_PLAY
     &sys_speaker_stop,   // 8: SYS_SPEAKER_STOP
-    &sys_get_regs        // 9: SYS_GET_REGS
+    &sys_get_regs,       // 9: SYS_GET_REGS
+    &sys_mem_alloc,      // 10: SYS_MEM_ALLOC
+    &sys_mem_free,       // 11: SYS_MEM_FREE
+    &sys_mem_status      // 12: SYS_MEM_STATUS
 };
 
 // ========== SYSCALL HANDLERS ==========
@@ -188,4 +192,22 @@ uint64_t sys_get_regs(uint64_t buffer_ptr) {
     
     // Si no se presionó ESC, no hay snapshot disponible
     return -1;
+}
+
+uint64_t sys_mem_alloc(uint64_t size) {
+    return (uint64_t)mm_alloc(size);
+}
+
+uint64_t sys_mem_free(uint64_t ptr) {
+    mm_free((void *)ptr);
+    return 0;
+}
+
+uint64_t sys_mem_status(uint64_t status_ptr) {
+    if (status_ptr == 0) {
+        return (uint64_t)-1;
+    }
+
+    mm_get_status((mm_status_t *)status_ptr);
+    return 0;
 }
