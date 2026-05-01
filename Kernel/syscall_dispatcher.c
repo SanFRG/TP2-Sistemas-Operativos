@@ -26,14 +26,11 @@ static const int char_height = 15;
 // Limits for scale
 #define MIN_SCALE 1
 #define MAX_SCALE 5
-#define MAX_SYSCALLS 14
-
-
 static void checkAndScroll(void);
 
 // Tabla de syscalls (puntero exportado para acceso desde int 0x80)
 // Cada entrada es un puntero a función
-void* syscall_table[MAX_SYSCALLS] = {
+void* syscall_table[SYS_COUNT] = {
     &sys_read,           // 0: SYS_READ
     &sys_write,          // 1: SYS_WRITE
     &sys_clear,          // 2: SYS_CLEAR

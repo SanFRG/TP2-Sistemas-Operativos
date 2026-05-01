@@ -8,19 +8,19 @@
 enum {
     SYS_READ = 0,      // Read from stdin (keyboard)
     SYS_WRITE = 1,     // Write to stdout (screen) - auto cursor
-    SYS_ERROR = 2,     // Error (stderr - reserved for future use)
-    SYS_CLEAR = 3,     // Clear screen
-    SYS_DRAW_AT = 4,   // Draw text at specific coordinates
-    SYS_TIME = 5,      // Get current time/date
-    SYS_TICKS = 6,     // Get system ticks
-    SYS_SET_SCALE = 7, // Set text scale (zoom)
-    SYS_DRAW_RECT = 8, // Draw filled rectangle
-    SYS_GET_KEY = 9,   // Get key non-blocking (returns 0 if no key)
-    SYS_GET_SCREEN_INFO = 10,  // Get screen resolution (returns width in upper 32 bits, height in lower 32 bits)
-    SYS_SLEEP = 11,    // Sleep for specified ticks
-    SYS_SPEAKER_PLAY = 12,  // Play sound on PC speaker (frequency in Hz)
-    SYS_SPEAKER_STOP = 13,  // Stop PC speaker sound
-    SYS_GET_REGS = 14       // Get current CPU registers snapshot
+    SYS_CLEAR = 2,     // Clear screen
+    SYS_DRAW_AT = 3,   // Draw text at specific coordinates
+    SYS_TIME = 4,      // Get current time/date
+    SYS_TICKS = 5,     // Get system ticks
+    SYS_SET_SCALE = 6, // Set text scale (zoom)
+    SYS_DRAW_RECT = 7, // Draw filled rectangle
+    SYS_GET_KEY = 8,   // Get key non-blocking (returns 0 if no key)
+    SYS_GET_SCREEN_INFO = 9,  // Get screen resolution (returns width in upper 32 bits, height in lower 32 bits)
+    SYS_SLEEP = 10,    // Sleep for specified ticks
+    SYS_SPEAKER_PLAY = 11,  // Play sound on PC speaker (frequency in Hz)
+    SYS_SPEAKER_STOP = 12,  // Stop PC speaker sound
+    SYS_GET_REGS = 13,      // Get current CPU registers snapshot
+    SYS_COUNT = 14
 };
 
 // Tabla de syscalls (array de punteros, accedida desde int 0x80)

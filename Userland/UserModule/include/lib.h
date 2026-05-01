@@ -3,20 +3,23 @@
 
 #include <stdint.h>
 
-#define SYS_READ 0
-#define SYS_WRITE 1
-#define SYS_CLEAR 3
-#define SYS_DRAW_AT 4
-#define SYS_TIME 5
-#define SYS_TICKS 6
-#define SYS_SET_SCALE 7
-#define SYS_DRAW_RECT 8
-#define SYS_GET_KEY 9
-#define SYS_GET_SCREEN_INFO 10
-#define SYS_SLEEP 11
-#define SYS_SPEAKER_PLAY 12
-#define SYS_SPEAKER_STOP 13
-#define SYS_GET_REGS 14
+enum {
+    SYS_READ = 0,
+    SYS_WRITE = 1,
+    SYS_CLEAR = 2,
+    SYS_DRAW_AT = 3,
+    SYS_TIME = 4,
+    SYS_TICKS = 5,
+    SYS_SET_SCALE = 6,
+    SYS_DRAW_RECT = 7,
+    SYS_GET_KEY = 8,
+    SYS_GET_SCREEN_INFO = 9,
+    SYS_SLEEP = 10,
+    SYS_SPEAKER_PLAY = 11,
+    SYS_SPEAKER_STOP = 12,
+    SYS_GET_REGS = 13,
+    SYS_COUNT = 14
+};
 
 // Register snapshot structure (must match kernel ExceptionFrame)
 typedef struct {

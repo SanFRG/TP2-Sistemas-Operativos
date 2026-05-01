@@ -32,6 +32,7 @@ SYS_SLEEP equ 10
 SYS_SPEAKER_PLAY equ 11
 SYS_SPEAKER_STOP equ 12
 SYS_GET_REGS equ 13
+SYS_COUNT equ 14
 
 ; Macro para syscall via int 0x80
 ; %1 = número de syscall
