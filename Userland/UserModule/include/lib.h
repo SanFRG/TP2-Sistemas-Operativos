@@ -7,18 +7,14 @@ enum {
     SYS_READ = 0,
     SYS_WRITE = 1,
     SYS_CLEAR = 2,
-    SYS_DRAW_AT = 3,
-    SYS_TIME = 4,
-    SYS_TICKS = 5,
-    SYS_SET_SCALE = 6,
-    SYS_DRAW_RECT = 7,
-    SYS_GET_KEY = 8,
-    SYS_GET_SCREEN_INFO = 9,
-    SYS_SLEEP = 10,
-    SYS_SPEAKER_PLAY = 11,
-    SYS_SPEAKER_STOP = 12,
-    SYS_GET_REGS = 13,
-    SYS_COUNT = 14
+    SYS_TIME = 3,
+    SYS_TICKS = 4,
+    SYS_GET_KEY = 5,
+    SYS_SLEEP = 6,
+    SYS_SPEAKER_PLAY = 7,
+    SYS_SPEAKER_STOP = 8,
+    SYS_GET_REGS = 9,
+    SYS_COUNT = 10
 };
 
 // Register snapshot structure (must match kernel ExceptionFrame)
@@ -33,12 +29,8 @@ extern uint64_t read(char* buffer, int max_len);
 extern uint64_t write(int fd, const char* str, int len);
 extern uint64_t get_time();
 extern uint64_t clear_screen(uint32_t color);
-extern uint64_t set_scale(int delta);  // delta: 1 = aumentar, -1 = disminuir
-extern uint64_t draw_at(const char* str, int len, int x, int y, uint32_t color);
 extern uint64_t get_ticks(void);
-extern uint64_t draw_rect(int x, int y, int width, int height, uint32_t color);
 extern int get_key(void);  // Returns scancode or 0 if no key pressed
-extern uint64_t get_screen_info(void);  // Returns (width << 32) | height
 extern void sleep_ticks(int ticks);  // Sleep for specified number of ticks
 extern uint64_t speaker_play(uint32_t frequency);  // Play sound on PC speaker (Hz)
 extern uint64_t speaker_stop(void);  // Stop PC speaker sound

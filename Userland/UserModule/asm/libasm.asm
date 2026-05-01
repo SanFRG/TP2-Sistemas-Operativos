@@ -2,12 +2,8 @@ GLOBAL read
 GLOBAL write
 GLOBAL get_time
 GLOBAL clear_screen
-GLOBAL set_scale
-GLOBAL draw_at
 GLOBAL get_ticks
-GLOBAL draw_rect
 GLOBAL get_key
-GLOBAL get_screen_info
 GLOBAL sleep_ticks
 GLOBAL speaker_play
 GLOBAL speaker_stop
@@ -21,18 +17,14 @@ GLOBAL trigger_invalid_opcode
 SYS_READ equ 0
 SYS_WRITE equ 1
 SYS_CLEAR equ 2
-SYS_DRAW_AT equ 3
-SYS_TIME equ 4
-SYS_TICKS equ 5
-SYS_SET_SCALE equ 6
-SYS_DRAW_RECT equ 7
-SYS_GET_KEY equ 8
-SYS_GET_SCREEN_INFO equ 9
-SYS_SLEEP equ 10
-SYS_SPEAKER_PLAY equ 11
-SYS_SPEAKER_STOP equ 12
-SYS_GET_REGS equ 13
-SYS_COUNT equ 14
+SYS_TIME equ 3
+SYS_TICKS equ 4
+SYS_GET_KEY equ 5
+SYS_SLEEP equ 6
+SYS_SPEAKER_PLAY equ 7
+SYS_SPEAKER_STOP equ 8
+SYS_GET_REGS equ 9
+SYS_COUNT equ 10
 
 ; Macro para syscall via int 0x80
 ; %1 = número de syscall
@@ -62,34 +54,14 @@ get_time:
 clear_screen:
     SYSCALL SYS_CLEAR
 
-; int set_scale(int delta)
-; rdi = delta (1 = aumentar, -1 = disminuir)
-set_scale:
-    SYSCALL SYS_SET_SCALE
-
-; int draw_at(const char* str, int len, int x, int y, uint32_t color)
-; rdi = str, rsi = len, rdx = x, rcx = y, r8 = color
-draw_at:
-    SYSCALL SYS_DRAW_AT
-
 ; uint64_t get_ticks(void)
 get_ticks:
     SYSCALL SYS_TICKS
-
-; int draw_rect(int x, int y, int width, int height, uint32_t color)
-; rdi = x, rsi = y, rdx = width, rcx = height, r8 = color
-draw_rect:
-    SYSCALL SYS_DRAW_RECT
 
 ; int get_key(void)
 ; Returns scancode or 0 if no key
 get_key:
     SYSCALL SYS_GET_KEY
-
-; uint64_t get_screen_info(void)
-; Returns (width << 32) | height
-get_screen_info:
-    SYSCALL SYS_GET_SCREEN_INFO
 
 ; void sleep_ticks(int ticks)
 ; rdi = ticks

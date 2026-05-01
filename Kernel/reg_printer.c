@@ -1,9 +1,19 @@
 #include <reg_printer.h>
-#include <videoDriver.h>
 #include <interrupts.h>
+#include <textConsole.h>
 
-#define LINE_HEIGHT (15 * scale)
-#define COLUMN_SPACING 280  // Espacio entre columnas de registros
+static uint64_t str_len(const char *str) {
+    uint64_t len = 0;
+    while (str[len] != 0) {
+        len++;
+    }
+    return len;
+}
+
+static void print_line(const char *line) {
+    tc_write(line, str_len(line));
+    tc_write("\n", 1);
+}
 
 void uint64_to_hex_string(uint64_t value, char* buffer) {
     for (int i = 15; i >= 0; i--) {
@@ -24,6 +34,10 @@ static char* append_string(char* dest, const char* src) {
 static void print_register_pair(const char* name1, uint64_t val1, 
                                 const char* name2, uint64_t val2,
                                 int x, int *y, uint32_t color, int scale) {
+    (void)x;
+    (void)color;
+    (void)scale;
+
     char line[80];  // Buffer para construir la línea completa
     char hex1[17], hex2[17];
     
@@ -44,11 +58,15 @@ static void print_register_pair(const char* name1, uint64_t val1,
     
     *p = '\0';
     
-    drawString(line, x, *y, color, scale);
-    *y += LINE_HEIGHT;
+    print_line(line);
+    (*y)++;
 }
 
 void print_registers_graphic(RegisterFrame *frame, int x, int *y, uint32_t color, int scale) {
+    (void)x;
+    (void)color;
+    (void)scale;
+
     char line[80];
     char hex[17];
     
@@ -57,11 +75,12 @@ void print_registers_graphic(RegisterFrame *frame, int x, int *y, uint32_t color
     p = append_string(p, "Instruction Pointer (RIP): 0x");
     p = append_string(p, hex);
     *p = '\0';
-    drawString(line, x, *y, color, scale);
-    *y += LINE_HEIGHT;
+    print_line(line);
+    (*y)++;
     
-    drawString("\nRegistros del procesador:\n", x, *y, color, scale);
-    *y += LINE_HEIGHT * 2;
+    print_line("");
+    print_line("Registros del procesador:");
+    (*y) += 2;
     
     print_register_pair("RAX: 0x", frame->rax, "RBX: 0x", frame->rbx, x, y, color, scale);
     print_register_pair("RCX: 0x", frame->rcx, "RDX: 0x", frame->rdx, x, y, color, scale);
@@ -73,7 +92,8 @@ void print_registers_graphic(RegisterFrame *frame, int x, int *y, uint32_t color
     print_register_pair("R14: 0x", frame->r14, "R15: 0x", frame->r15, x, y, color, scale);
     
     // Línea en blanco
-    *y += LINE_HEIGHT;
+    print_line("");
+    (*y)++;
     
     print_register_pair("CS: 0x", frame->cs, "SS: 0x", frame->ss, x, y, color, scale);
     print_register_pair("RFLAGS: 0x", frame->rflags, "", 0, x, y, color, scale);

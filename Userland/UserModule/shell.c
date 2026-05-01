@@ -19,8 +19,6 @@ typedef struct {
 static Command commands[] = {
     {"help", cmd_help},
     {"time", cmd_time},
-    {"zoomin", cmd_zoom_in},
-    {"zoomout", cmd_zoom_out},
     {"regs", cmd_registers},
     {"clear", cmd_clear},
     {"cerodiv", cmd_test_cero_division},
@@ -75,8 +73,6 @@ void cmd_help(void) {
     println("Comandos disponibles:");
     println("  help       - Muestra este mensaje de ayuda");
     println("  time       - Muestra la fecha y hora actual");
-    println("  zoomin     - Aumenta el zoom del texto");
-    println("  zoomout    - Disminuye el zoom del texto");
     println("  regs       - Muestra los registros guardados");
     println("  cerodiv    - Ejecuta la division por cero");
     println("  invalido   - Dispara excepcion por opcode invalido");
@@ -109,22 +105,6 @@ void cmd_time(void) {
     print2Digits(mm); print(":");
     print2Digits(ss);
     print("\n");
-}
-
-void cmd_zoom_in(void) {
-    if (set_scale(1) == 0) {  // 1 = aumentar
-        println("Zoom in aplicado");
-    } else {
-        println("Zoom maximo alcanzado");
-    }
-}
-
-void cmd_zoom_out(void) {
-    if (set_scale(-1) == 0) {  // -1 = disminuir
-        println("Zoom out aplicado");
-    } else {
-        println("Zoom minimo alcanzado");
-    }
 }
 
 void cmd_registers(void) {

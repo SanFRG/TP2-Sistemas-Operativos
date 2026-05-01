@@ -1,7 +1,6 @@
 #include <keyboard.h>
 #include <lib.h>
 #include <naiveConsole.h>
-#include <videoDriver.h>
 #include <syscall_dispatcher.h>
 #include <exceptions.h>
 
@@ -12,8 +11,6 @@
 #define LEFT_SHIFT_SCANCODE 0x2A
 #define RIGHT_SHIFT_SCANCODE 0x36
 #define RELEASE_MASK 0x80  
-#define CHAR_WIDTH 8       // Ancho de la fuente modernDos
-#define CHAR_HEIGHT 15     // Alto de la fuente modernDos
 #define TAB_SIZE 4        
 
 extern uint8_t esc_pressed;

@@ -1,7 +1,5 @@
 void cmd_help(void);
 void cmd_time(void);
-void cmd_zoom_in(void);
-void cmd_zoom_out(void);
 void cmd_registers(void);
 void cmd_clear(void);
 void cmd_test_cero_division(void);

@@ -3,30 +3,16 @@
 #include <syscall_dispatcher.h>
 #include <keyboard.h>
 #include <time.h>
-#include <videoDriver.h>
 #include <lib.h>
 #include <time.h>
 #include <interrupts.h>
 #include <reg_printer.h>
 #include <exceptions.h>
+#include <textConsole.h>
 
 // Variables externas desde interrupts.asm
 extern RegisterFrame user_snapshot;
 extern uint8_t snapshot_ready;
-
-// Console cursor state (maintained by kernel)
-static uint64_t console_x = 10;
-static uint64_t console_y = 10;
-static int console_scale = 1;
-static const uint32_t console_color = 0x00FFFFFF;
-static const uint32_t console_bg = 0x00000000;
-static const int char_width = 8;
-static const int char_height = 15;
-
-// Limits for scale
-#define MIN_SCALE 1
-#define MAX_SCALE 5
-static void checkAndScroll(void);
 
 // Tabla de syscalls (puntero exportado para acceso desde int 0x80)
 // Cada entrada es un puntero a función
@@ -34,30 +20,21 @@ void* syscall_table[SYS_COUNT] = {
     &sys_read,           // 0: SYS_READ
     &sys_write,          // 1: SYS_WRITE
     &sys_clear,          // 2: SYS_CLEAR
-    &sys_draw_at,        // 3: SYS_DRAW_AT
-    &sys_time,           // 4: SYS_TIME
-    &sys_ticks,          // 5: SYS_TICKS
-    &sys_set_scale,      // 6: SYS_SET_SCALE
-    &sys_draw_rect,      // 7: SYS_DRAW_RECT
-    &sys_get_key,        // 8: SYS_GET_KEY
-    &sys_get_screen_info,// 9: SYS_GET_SCREEN_INFO
-    &sys_sleep,          // 10: SYS_SLEEP
-    &sys_speaker_play,   // 11: SYS_SPEAKER_PLAY
-    &sys_speaker_stop,   // 12: SYS_SPEAKER_STOP
-    &sys_get_regs        // 13: SYS_GET_REGS
+    &sys_time,           // 3: SYS_TIME
+    &sys_ticks,          // 4: SYS_TICKS
+    &sys_get_key,        // 5: SYS_GET_KEY
+    &sys_sleep,          // 6: SYS_SLEEP
+    &sys_speaker_play,   // 7: SYS_SPEAKER_PLAY
+    &sys_speaker_stop,   // 8: SYS_SPEAKER_STOP
+    &sys_get_regs        // 9: SYS_GET_REGS
 };
 
 // ========== SYSCALL HANDLERS ==========
 
 // SYS_CLEAR: Clear screen
 uint64_t sys_clear(uint64_t color) {
-    uint32_t bg_color = color ? (uint32_t)color : 0x00000000;
-    clearScreen(bg_color);
-    
-    // Reset console cursor to top-left
-    console_x = 10;
-    console_y = 10;
-    
+    (void)color;
+    tc_clear();
     return 0;
 }
 uint64_t sys_ticks(void) {
@@ -76,95 +53,15 @@ uint64_t sys_time() {
            (uint64_t)t.seconds;
 }
 
-// SYS_SET_SCALE: Set text scale (zoom)
-uint64_t sys_set_scale(uint64_t delta) {
-    int d = (int)delta;
-    // If delta == -2, just return current scale without changing
-    if (d == -2) {
-        return console_scale;
-    }
-    
-    int new_scale = console_scale + d;
-    
-    if (new_scale < MIN_SCALE || new_scale > MAX_SCALE) {
-        return -1;  // Error: fuera de rango
-    }
-    console_scale = new_scale;
-    return 0;
-}
-
-// SYS_DRAW_AT: Draw text at specific coordinates (for UI/games)
-uint64_t sys_draw_at(uint64_t str_ptr, uint64_t length, uint64_t x, uint64_t y, uint64_t color) {
-    char* str = (char*)str_ptr;
-    int len = (int)length;
-    uint32_t text_color = color ? (uint32_t)color : console_color;  // Use provided color or default
-    
-    if (!str || len <= 0) {
-        return 0;
-    }
-    
-    for (int i = 0; i < len && str[i] != 0; i++) {
-        if (str[i] >= 32 && str[i] < 127) {
-            drawChar(str[i], x + (i * char_width * console_scale), y, text_color, console_scale);
-        }
-    }
-    return len;
-}
-
-// Helper function to check and handle scrolling
-static void checkAndScroll(void) {
-    if (console_y > getScreenHeight() - (char_height * console_scale)) {
-        scrollUpLines(1, console_scale, console_bg);
-        console_y -= char_height * console_scale;
-    }
-}
-
 uint64_t sys_write(uint64_t fd, uint64_t str_ptr, uint64_t length) {
     // fd = file descriptor (1=stdout, 2=stderr - currently ignored)
     // str_ptr = string pointer
     // length = length
     // Returns: number of bytes written
 
-    char* str = (char*)str_ptr;
-    int len = (int)length;
-    
-    for (int i = 0; i < len && str[i] != 0; i++) {
-        char c = str[i];
-        
-        if (c == '\n') {
-            // Newline: reset x and advance y
-            console_x = 10;
-            console_y += char_height * console_scale;
-            checkAndScroll();
-        } else if (c == '\b') {
-            // Backspace: move cursor back and erase character
-            if (console_x > 10) {
-                console_x -= char_width * console_scale;
-                drawChar(127, console_x, console_y, console_bg, console_scale);
-            } 
-            else if (console_y > 10) {
-                console_y -= char_height * console_scale;
-                // Calcular cuántos caracteres caben en una línea
-               // int max_x = getScreenWidth() - 10;  // Espacio disponible desde margen
-                int chars_per_line = (getScreenWidth() - 10) / (char_width * console_scale);
-                // Posicionar al final de la línea anterior (último carácter)
-                console_x = 10 + ((chars_per_line - 1) * char_width * console_scale);
-                drawChar(127, console_x, console_y, console_bg, console_scale);
-            }
-        } else if (c >= 32 && c < 127) {
-            // Printable character
-            drawChar(c, console_x, console_y, console_color, console_scale);
-            console_x += char_width * console_scale;
-            
-            // Horizontal wrap
-            if (console_x > getScreenWidth() - (char_width * console_scale)) {
-                console_x = 10;
-                console_y += char_height * console_scale;
-                checkAndScroll();
-            }
-        }
-    }
-    return len;
+    (void)fd;
+    tc_write((const char *)str_ptr, length);
+    return length;
 }
 
 uint64_t sys_read(uint64_t buffer, uint64_t max_len) {
@@ -231,28 +128,12 @@ uint64_t sys_read(uint64_t buffer, uint64_t max_len) {
     return i;
 }
 
-// SYS_DRAW_RECT: Draw filled rectangle at specific coordinates
-uint64_t sys_draw_rect(uint64_t x, uint64_t y, uint64_t width, uint64_t height, uint64_t color) {
-    fillRect(x, y, width, height, (uint32_t)color);
-    return 0;
-}
-
 // SYS_GET_KEY: Get key non-blocking (returns scancode or 0 if no key)
 uint64_t sys_get_key(void) {
     if (hasNextKey()) {
         return (uint64_t)nextKey();
     }
     return 0;
-}
-
-// SYS_GET_SCREEN_INFO: Get screen resolution
-// Returns width in upper 32 bits, height in lower 32 bits
-uint64_t sys_get_screen_info(void) {
-    uint16_t width = getScreenWidth();
-    uint16_t height = getScreenHeight();
-    
-    // Retornar width en los 32 bits superiores, height en los inferiores
-    return ((uint64_t)width << 32) | (uint64_t)height;
 }
 
 // SYS_SLEEP: Sleep for specified number of ticks
