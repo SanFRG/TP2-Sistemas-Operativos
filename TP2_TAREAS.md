@@ -45,10 +45,11 @@ Implementar reserva y liberacion de memoria fisica/dinamica para que el kernel y
 - Implementar split de bloques cuando sobra espacio.
 - Implementar `free` marcando bloques como libres.
 - Fusionar bloques libres contiguos para evitar fragmentacion excesiva.
-- Agregar syscalls:
-  - reservar memoria
-  - liberar memoria
+<mark>- Agregar syscalls:
+   - reservar memoria  
+  - liberar memoria   
   - consultar estado de memoria
+</mark>
 - Agregar wrappers en userland:
   - `malloc`
   - `free`

@@ -90,7 +90,7 @@ void * initializeKernelBinary()
 }
 
 int main(){
-	uint64_t heap_start = align_up((uint64_t)&endOfKernel, heapAlignment);
+	uint64_t heap_start = align_up((uint64_t)&endOfKernel + (PageSize * 8), heapAlignment);
 	uint64_t heap_end = (uint64_t)userCodeModuleAddress;
 
 	// Inicializar interrupciones

@@ -5,6 +5,9 @@
 
 #define COLOR_BLACK   0x00000000
 #define BUFFER_SIZE 256
+#define MAX_MM_BLOCKS 128
+#define TEST_MM_ITERS 40
+#define TEST_MM_MAX_MEMORY (128 * 1024)
 #define NULL ((void*)0)
 int shell_exit = 0;
 char buffer[BUFFER_SIZE];
@@ -21,6 +24,7 @@ static Command commands[] = {
     {"time", cmd_time},
     {"mem", cmd_mem},
     {"memtest", cmd_memtest},
+    {"test_mm", cmd_test_mm},
     {"regs", cmd_registers},
     {"clear", cmd_clear},
     {"cerodiv", cmd_test_cero_division},
@@ -76,7 +80,8 @@ void cmd_help(void) {
     println("  help       - Muestra este mensaje de ayuda");
     println("  time       - Muestra la fecha y hora actual");
     println("  mem        - Muestra el estado del memory manager");
-    println("  memtest    - Ejecuta alloc/free de prueba para heap_1");
+    println("  memtest    - Ejecuta alloc/free de prueba para heap_4");
+    println("  test_mm    - Test de stress de alloc/free (iteraciones acotadas)");
     println("  regs       - Muestra los registros guardados");
     println("  cerodiv    - Ejecuta la division por cero");
     println("  invalido   - Dispara excepcion por opcode invalido");
@@ -111,6 +116,44 @@ void cmd_time(void) {
     print("\n");
 }
 
+typedef struct {
+    void *address;
+    uint32_t size;
+} mm_rq_t;
+
+static uint32_t mm_rand_z = 362436069U;
+static uint32_t mm_rand_w = 521288629U;
+
+static uint32_t mm_rand_u32(void) {
+    mm_rand_z = 36969U * (mm_rand_z & 65535U) + (mm_rand_z >> 16);
+    mm_rand_w = 18000U * (mm_rand_w & 65535U) + (mm_rand_w >> 16);
+    return (mm_rand_z << 16) + mm_rand_w;
+}
+
+static uint32_t mm_uniform(uint32_t max) {
+    if (max == 0) {
+        return 0;
+    }
+    return (uint32_t)((mm_rand_u32() + 1.0) * 2.328306435454494e-10 * max);
+}
+
+static void mm_fill(void *start, uint8_t value, uint32_t size) {
+    uint8_t *p = (uint8_t *)start;
+    for (uint32_t i = 0; i < size; i++) {
+        p[i] = value;
+    }
+}
+
+static uint8_t mm_check(const void *start, uint8_t value, uint32_t size) {
+    const uint8_t *p = (const uint8_t *)start;
+    for (uint32_t i = 0; i < size; i++) {
+        if (p[i] != value) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
 void cmd_mem(void) {
     MemoryStatus status;
 
@@ -119,7 +162,7 @@ void cmd_mem(void) {
         return;
     }
 
-    println("=== Estado de memoria (heap_1) ===");
+    println("=== Estado de memoria (heap_4) ===");
     print("Total bytes: "); printHex(status.total_bytes); print("\n");
     print("Used bytes:  "); printHex(status.used_bytes); print("\n");
     print("Free bytes:  "); printHex(status.free_bytes); print("\n");
@@ -160,7 +203,7 @@ void cmd_memtest(void) {
         return;
     }
 
-    println("=== memtest (heap_1) ===");
+    println("=== memtest (heap_4) ===");
     print("p1(64)  = "); printHex((uint64_t)p1); print("\n");
     print("p2(256) = "); printHex((uint64_t)p2); print("\n");
 
@@ -187,6 +230,58 @@ void cmd_memtest(void) {
     print(" frees: "); printHex(after_free.successful_frees);
     print(" fails: "); printHex(after_free.failed_allocations);
     print("\n");
+}
+
+void cmd_test_mm(void) {
+    mm_rq_t reqs[MAX_MM_BLOCKS];
+    uint32_t total;
+    uint8_t rq;
+    uint32_t i;
+
+    println("test_mm: iniciando (iteraciones acotadas)...");
+
+    for (int iter = 0; iter < TEST_MM_ITERS; iter++) {
+        rq = 0;
+        total = 0;
+
+        while (rq < MAX_MM_BLOCKS && total < TEST_MM_MAX_MEMORY) {
+            uint32_t remaining = TEST_MM_MAX_MEMORY - total;
+            uint32_t size = mm_uniform(remaining);
+            if (size == 0) {
+                size = 1;
+            }
+
+            reqs[rq].size = size;
+            reqs[rq].address = mem_alloc(size);
+            if (reqs[rq].address != 0) {
+                total += size;
+                rq++;
+            } else {
+                break;
+            }
+        }
+
+        for (i = 0; i < rq; i++) {
+            if (reqs[i].address != 0) {
+                mm_fill(reqs[i].address, (uint8_t)i, reqs[i].size);
+            }
+        }
+
+        for (i = 0; i < rq; i++) {
+            if (reqs[i].address != 0 && !mm_check(reqs[i].address, (uint8_t)i, reqs[i].size)) {
+                println("test_mm ERROR: corrupcion detectada");
+                return;
+            }
+        }
+
+        for (i = 0; i < rq; i++) {
+            if (reqs[i].address != 0) {
+                mem_free(reqs[i].address);
+            }
+        }
+    }
+
+    println("test_mm OK");
 }
 
 void cmd_registers(void) {
