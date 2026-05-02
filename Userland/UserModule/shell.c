@@ -80,7 +80,7 @@ void cmd_help(void) {
     println("  help       - Muestra este mensaje de ayuda");
     println("  time       - Muestra la fecha y hora actual");
     println("  mem        - Muestra el estado del memory manager");
-    println("  memtest    - Ejecuta alloc/free de prueba para heap_4");
+    println("  memtest    - Ejecuta alloc/free de prueba para el memory manager");
     println("  test_mm    - Test de stress de alloc/free (iteraciones acotadas)");
     println("  regs       - Muestra los registros guardados");
     println("  cerodiv    - Ejecuta la division por cero");
@@ -162,7 +162,7 @@ void cmd_mem(void) {
         return;
     }
 
-    println("=== Estado de memoria (heap_4) ===");
+    println("=== Estado de memoria ===");
     print("Total bytes: "); printHex(status.total_bytes); print("\n");
     print("Used bytes:  "); printHex(status.used_bytes); print("\n");
     print("Free bytes:  "); printHex(status.free_bytes); print("\n");
@@ -203,7 +203,7 @@ void cmd_memtest(void) {
         return;
     }
 
-    println("=== memtest (heap_4) ===");
+    println("=== memtest ===");
     print("p1(64)  = "); printHex((uint64_t)p1); print("\n");
     print("p2(256) = "); printHex((uint64_t)p2); print("\n");
 

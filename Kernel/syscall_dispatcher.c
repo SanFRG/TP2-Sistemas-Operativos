@@ -9,7 +9,7 @@
 #include <reg_printer.h>
 #include <exceptions.h>
 #include <textConsole.h>
-#include <mm.h>
+#include <memoryManager.h>
 
 // Variables externas desde interrupts.asm
 extern RegisterFrame user_snapshot;

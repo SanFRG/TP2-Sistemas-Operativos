@@ -1,6 +1,10 @@
 
 all:  bootloader kernel userland image
 
+buddy: bootloader userland
+	cd Kernel; make buddy
+	cd Image; make all
+
 bootloader:
 	cd Bootloader; make all
 
@@ -19,4 +23,4 @@ clean:
 	cd Kernel; make clean
 	cd Userland; make clean
 
-.PHONY: bootloader image collections kernel userland all clean
+.PHONY: bootloader image collections kernel userland all buddy clean

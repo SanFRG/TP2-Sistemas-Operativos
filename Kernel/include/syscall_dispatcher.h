@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 #include <exceptions.h>
-#include <mm.h>
+#include <memoryManager.h>
 
 // Syscall numbers
 enum {
@@ -17,8 +17,8 @@ enum {
     SYS_SPEAKER_PLAY = 7,  // Play sound on PC speaker (frequency in Hz)
     SYS_SPEAKER_STOP = 8,  // Stop PC speaker sound
     SYS_GET_REGS = 9,      // Get current CPU registers snapshot
-    SYS_MEM_ALLOC = 10,    // Allocate heap memory (heap_1)
-    SYS_MEM_FREE = 11,     // Free heap memory (no-op in heap_1)
+    SYS_MEM_ALLOC = 10,    // Allocate memory
+    SYS_MEM_FREE = 11,     // Free memory
     SYS_MEM_STATUS = 12,   // Query allocator status
     SYS_COUNT = 13
 };

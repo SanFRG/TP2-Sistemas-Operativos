@@ -6,7 +6,7 @@
 #include <keyboard.h>
 #include <idtLoader.h>
 #include <interrupts.h>
-#include <mm.h>
+#include <memoryManager.h>
 
 extern uint8_t text;
 extern uint8_t rodata;
@@ -96,7 +96,7 @@ int main(){
 	// Inicializar interrupciones
 	load_idt();
 	
-	/* Reserve memory between end of kernel and user module for heap_1. */
+	/* Reserve memory between end of kernel and user module for the memory manager. */
 	if (heap_end > heap_start) {
 		mm_init((void *)heap_start, heap_end - heap_start);
 	} else {
