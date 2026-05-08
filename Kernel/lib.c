@@ -1,5 +1,12 @@
 #include <stdint.h>
 
+void strncpy(char *dst, const char *src, int max) {
+    int i;
+    for (i = 0; i < max - 1 && src[i]; i++)
+        dst[i] = src[i];
+    dst[i] = '\0';
+}
+
 void * memset(void * destination, int32_t c, uint64_t length)
 {
 	uint8_t chr = (uint8_t)c;
