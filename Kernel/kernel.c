@@ -21,6 +21,10 @@ static void * const userCodeModuleAddress = (void*)0x400000;
 static void * const userDataModuleAddress = (void*)0x500000;
 static const uint64_t heapAlignment = 8;
 
+// RSP del stack en el momento de llamar a userland, usado para resetear
+// el stack al recuperarse de una excepcion
+uint64_t userland_entry_rsp = 0;
+
 static uint64_t align_up(uint64_t value, uint64_t alignment) {
 	return (value + alignment - 1) & ~(alignment - 1);
 }
@@ -102,6 +106,12 @@ int main(){
 	} else {
 		mm_init((void *)heap_start, 0);
 	}
+
+	// Capturar RSP antes del call para poder resetearlo en recuperacion de excepciones.
+	// Se resta 8 porque la instruccion call empuja la direccion de retorno al stack.
+	uint64_t rsp_now;
+	__asm__ volatile("mov %%rsp, %0" : "=r"(rsp_now));
+	userland_entry_rsp = rsp_now - 8;
 
 	// Iniciar userland (shell)
 	((EntryPoint)userCodeModuleAddress)();
