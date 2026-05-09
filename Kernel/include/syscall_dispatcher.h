@@ -28,7 +28,8 @@ enum {
     SYS_WAITPID = 18,      // Wait for process termination
     SYS_PS = 19,           // List process table
     SYS_YIELD = 20,        // Yield CPU voluntarily
-    SYS_COUNT = 21
+    SYS_CREATE_PROCESS = 21, // Create process
+    SYS_COUNT = 22
 };
 
 // Tabla de syscalls (array de punteros, accedida desde int 0x80)
@@ -56,5 +57,6 @@ uint64_t sys_nice(uint64_t pid, uint64_t new_priority);
 uint64_t sys_waitpid(uint64_t pid);
 uint64_t sys_ps(uint64_t buffer_ptr, uint64_t max_entries);
 uint64_t sys_yield(void);
+uint64_t sys_create_process(uint64_t name_ptr, uint64_t entry_ptr, uint64_t arg_ptr, uint64_t priority, uint64_t foreground);
 
 #endif

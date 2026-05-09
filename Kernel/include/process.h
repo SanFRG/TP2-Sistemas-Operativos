@@ -6,7 +6,7 @@
 #define PROCESS_NAME_LEN 32
 #define MAX_PROCESSES 64
 
-typedef enum { READY, RUNNING, BLOCKED, KILLED } ProcessState;
+typedef enum { READY, RUNNING, BLOCKED, KILLED, TERMINATED } ProcessState;
 
 typedef struct PCB {
     int pid;
@@ -42,7 +42,6 @@ int process_unblock(int pid);
 int process_set_priority(int pid, int new_priority);
 int process_wait(int pid);
 int process_list(process_info *buffer, uint64_t max_entries);
-
-PCB *create_process(char *name, void (*function)(void *), void *arg, int priority);
+int process_create(const char *name, void (*function)(void *), void *arg, int priority, int foreground);
 
 #endif

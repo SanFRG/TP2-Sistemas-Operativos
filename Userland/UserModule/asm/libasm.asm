@@ -19,6 +19,7 @@ GLOBAL nice_process
 GLOBAL waitpid
 GLOBAL ps
 GLOBAL yield_cpu
+GLOBAL create_process
 GLOBAL _hlt
 GLOBAL _cli
 GLOBAL _sti
@@ -46,7 +47,8 @@ SYS_NICE equ 17
 SYS_WAITPID equ 18
 SYS_PS equ 19
 SYS_YIELD equ 20
-SYS_COUNT equ 21
+SYS_CREATE_PROCESS equ 21
+SYS_COUNT equ 22
 
 ; Macro para syscall via int 0x80
 ; %1 = número de syscall
@@ -156,6 +158,11 @@ ps:
 ; int64_t yield_cpu(void)
 yield_cpu:
     SYSCALL SYS_YIELD
+
+; int64_t create_process(char *name, void (*entry_point)(void *), void *arg, uint64_t priority, uint64_t foreground)
+; rdi = name, rsi = entry_point, rdx = arg, rcx = priority, r8 = foreground
+create_process:
+    SYSCALL SYS_CREATE_PROCESS
 
 _hlt:
 	sti

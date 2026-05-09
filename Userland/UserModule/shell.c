@@ -139,6 +139,7 @@ static const char *state_to_str(int state) {
         case 1: return "RUNNING";
         case 2: return "BLOCKED";
         case 3: return "KILLED";
+        case 4: return "TERMINATED";
         default: return "UNKNOWN";
     }
 }

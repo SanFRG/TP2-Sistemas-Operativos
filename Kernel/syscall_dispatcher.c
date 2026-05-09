@@ -39,7 +39,8 @@ void* syscall_table[SYS_COUNT] = {
     &sys_nice,           // 17: SYS_NICE
     &sys_waitpid,        // 18: SYS_WAITPID
     &sys_ps,             // 19: SYS_PS
-    &sys_yield           // 20: SYS_YIELD
+    &sys_yield,          // 20: SYS_YIELD
+    &sys_create_process  // 21: SYS_CREATE_PROCESS
 };
 
 // ========== SYSCALL HANDLERS ==========
@@ -255,4 +256,16 @@ uint64_t sys_ps(uint64_t buffer_ptr, uint64_t max_entries) {
 uint64_t sys_yield(void) {
     _hlt();
     return 0;
+}
+
+uint64_t sys_create_process(uint64_t name_ptr, uint64_t entry_ptr, uint64_t arg_ptr, uint64_t priority, uint64_t foreground) {
+    if (name_ptr == 0 || entry_ptr == 0) {
+        return (uint64_t)-1;
+    }
+
+    return (uint64_t)process_create((const char *)name_ptr,
+                                    (void (*)(void *))entry_ptr,
+                                    (void *)arg_ptr,
+                                    (int)priority,
+                                    (int)foreground);
 }

@@ -25,7 +25,8 @@ enum {
     SYS_WAITPID = 18,
     SYS_PS = 19,
     SYS_YIELD = 20,
-    SYS_COUNT = 21
+    SYS_CREATE_PROCESS = 21,
+    SYS_COUNT = 22
 };
 
 // Register snapshot structure (must match kernel ExceptionFrame)
@@ -75,6 +76,7 @@ extern int64_t nice_process(uint64_t pid, uint64_t new_priority);
 extern int64_t waitpid(int64_t pid);
 extern int64_t ps(process_info *buffer, uint64_t max_entries);
 extern int64_t yield_cpu(void);
+extern int64_t create_process(char *name, void (*entry_point)(void *), void *arg, uint64_t priority, uint64_t foreground);
 
 extern void trigger_invalid_opcode(void);  // Trigger Invalid Opcode exception (for testing)
 

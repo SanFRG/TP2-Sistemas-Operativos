@@ -10,9 +10,12 @@ static PCB process_table[MAX_PROCESSES];//TODO:ver si mas adelante nos conviene 
 static int next_pid = 1; //0 lo dejamos como valor vacio/no asignado para el boot y etc
 static int current_pid = -1;
 
+static void clear_pcb_slot(PCB *p);
+
 static int generate_pid(void) {
     return next_pid++;
 }
+
 
 static void init_name(char *dst, const char *src) {
     if (src == NULL) {
@@ -64,10 +67,32 @@ static PCB *get_free_slot(void) {
 
 void process_system_init(void) {
     for (int i = 0; i < MAX_PROCESSES; i++) {
-        process_table[i].pid = 0;
+        clear_pcb_slot(&process_table[i]);
     }
     next_pid = 1;
     current_pid = -1; 
+}
+
+static void clear_pcb_slot(PCB *p) {
+    if (p == NULL) {
+        return;
+    }
+
+    p->pid = 0;
+    p->name[0] = '\0';
+    p->state = TERMINATED;
+    p->priority = 0;
+    p->stack_base = NULL;
+    p->stack_pointer = NULL;
+    p->foreground = 0;
+    p->parent_pid = 0;
+    p->children_count = 0;
+    p->fd[0] = 0;
+    p->fd[1] = 0;
+    p->fd[2] = 0;
+    p->exit_code = 0;
+    p->base_pointer = NULL;
+    p->next = NULL;
 }
 
 int pcb_set_current(const char *name, int foreground, int priority, int parent_pid) {
@@ -135,7 +160,24 @@ int process_wait(int pid) {
     if (p == NULL) {
         return -1;
     }
-    return (p->state == KILLED) ? 0 : -1; //dsp ver como usarlo con el scheduler
+    if (current_pid != -1 && p->parent_pid != current_pid) { //valido que sea un proceso padre para hacer wait
+        return -1;
+    }
+    if (p->state != KILLED && p->state != TERMINATED) { //si el hijo sigue vivo retorno -1, si terminó ahi recien hago el clean
+        return -1; 
+    }
+
+    if (p->stack_base != NULL) {
+        mm_free(p->stack_base);
+    }
+
+    PCB *parent = get_process_by_pid(p->parent_pid);
+    if (parent != NULL && parent->children_count > 0) {
+        parent->children_count--;
+    }
+
+    clear_pcb_slot(p);
+    return 0;
 }
 
 int process_list(process_info *buffer, uint64_t max_entries) {
@@ -162,26 +204,32 @@ int process_list(process_info *buffer, uint64_t max_entries) {
     return (int)count;
 }
 
-PCB *create_process(char *name, void (*function)(void *), void *arg, int priority) {
+int process_create(const char *name, void (*function)(void *), void *arg, int priority, int foreground) {
     if (name == NULL || function == NULL) {
-        return NULL;
+        return -1;
     }
 
     PCB *p = get_free_slot();
     if (p == NULL) {
-        return NULL;
+        return -1;
     }
 
-    init_process_common(p, name, 1, priority, current_pid);
+    init_process_common(p, name, foreground ? 1 : 0, priority, current_pid);
 
     p->stack_base = mm_alloc(STACK_SIZE);
     if (p->stack_base == NULL) {
         p->pid = 0; //si falla lo dejamos como slot libre
-        return NULL;
+        return -1;
     }
 
     void *stack_top = (void *)((uint8_t *)p->stack_base + STACK_SIZE);
     p->stack_pointer = setProcessStackASM((void *)function, stack_top, arg);
     p->base_pointer = p->stack_pointer;
-    return p;
+
+    PCB *parent = get_process_by_pid(current_pid); //p->hijo, parent->proceso actual
+    if (parent != NULL) {
+        parent->children_count++;
+    }
+
+    return p->pid;
 }
