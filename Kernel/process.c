@@ -6,57 +6,182 @@
 
 #define STACK_SIZE 4096
 
-static int next_pid = 1;
+static PCB process_table[MAX_PROCESSES];//TODO:ver si mas adelante nos conviene cambiar a otra estructura
+static int next_pid = 1; //0 lo dejamos como valor vacio/no asignado para el boot y etc
+static int current_pid = -1;
 
 static int generate_pid(void) {
     return next_pid++;
 }
 
-Process *create_process(char *name, void (*function)(void *), void *arg, int priority) {
-    Process *p = (Process *)mm_alloc(sizeof(Process));
-    if (p == NULL)
-        return NULL;
+static void init_name(char *dst, const char *src) {
+    if (src == NULL) {
+        dst[0] = '\0';
+        return;
+    }
+    strncpy(dst, src, PROCESS_NAME_LEN - 1);
+    dst[PROCESS_NAME_LEN - 1] = '\0';
+}
 
+static void init_process_common(PCB *p, const char *name, int foreground, int priority, int parent_pid) {
     p->pid = generate_pid();
-    strncpy(p->name, name, sizeof(p->name));
+    init_name(p->name, name);
     p->state = READY;
     p->priority = priority;
-    p->foreground = 1;
+    p->foreground = foreground;
+    p->parent_pid = parent_pid;
+    p->children_count = 0;
+    p->fd[0] = 0;
+    p->fd[1] = 1;
+    p->fd[2] = 2;
+    p->exit_code = 0;
+    p->stack_base = NULL;
+    p->stack_pointer = NULL;
+    p->base_pointer = NULL;
     p->next = NULL;
+}
 
-    p->stack_base = mm_alloc(STACK_SIZE);
-    if (p->stack_base == NULL) {
-        mm_free(p);
+static PCB *get_process_by_pid(int pid) {
+    if (pid <= 0) {
+        return NULL;
+    }
+    for (int i = 0; i < MAX_PROCESSES; i++) {
+        if (process_table[i].pid == pid) {
+            return &process_table[i];
+        }
+    }
+    return NULL;
+}
+
+static PCB *get_free_slot(void) {
+    for (int i = 0; i < MAX_PROCESSES; i++) {
+        if (process_table[i].pid == 0) {
+            return &process_table[i];
+        }
+    }
+    return NULL;
+}
+
+void process_system_init(void) {
+    for (int i = 0; i < MAX_PROCESSES; i++) {
+        process_table[i].pid = 0;
+    }
+    next_pid = 1;
+    current_pid = -1; 
+}
+
+int pcb_set_current(const char *name, int foreground, int priority, int parent_pid) {
+    PCB *p = get_free_slot();
+    if (p == NULL) {
+        return -1;
+    }
+
+    init_process_common(p, name, foreground, priority, parent_pid);
+    p->state = RUNNING;
+    current_pid = p->pid;
+    return p->pid;
+}
+
+int process_get_current_pid(void) {
+    return current_pid;
+}
+
+int process_kill(int pid) {
+    PCB *p = get_process_by_pid(pid);
+    if (p == NULL || p->state == KILLED) {
+        return -1;
+    }
+    if (pid == current_pid) {
+        return -1;
+    }
+
+    p->state = KILLED;
+    p->exit_code = -1;
+    return 0;
+}
+
+int process_block(int pid) {
+    PCB *p = get_process_by_pid(pid);
+    if (p == NULL || p->state != RUNNING) {
+        return -1;
+    }
+    if (pid == current_pid) {
+        return -1;
+    }
+    p->state = BLOCKED;
+    return 0;
+}
+
+int process_unblock(int pid) {
+    PCB *p = get_process_by_pid(pid);
+    if (p == NULL || p->state != BLOCKED) {
+        return -1;
+    }
+    p->state = READY;
+    return 0;
+}
+
+int process_set_priority(int pid, int new_priority) {
+    PCB *p = get_process_by_pid(pid);
+    if (p == NULL || p->state == KILLED || new_priority < 0) {
+        return -1;
+    }
+    p->priority = new_priority;
+    return 0;
+}
+
+int process_wait(int pid) {
+    PCB *p = get_process_by_pid(pid);
+    if (p == NULL) {
+        return -1;
+    }
+    return (p->state == KILLED) ? 0 : -1; //dsp ver como usarlo con el scheduler
+}
+
+int process_list(process_info *buffer, uint64_t max_entries) {
+    if (buffer == NULL || max_entries == 0) {
+        return -1;
+    }
+
+    uint64_t count = 0;
+    for (int i = 0; i < MAX_PROCESSES && count < max_entries; i++) {
+        PCB *p = &process_table[i];
+        if (p->pid == 0 || p->state == KILLED) {
+            continue;
+        }
+
+        buffer[count].pid = p->pid;
+        buffer[count].parent_pid = p->parent_pid;
+        buffer[count].priority = p->priority;
+        buffer[count].foreground = p->foreground;
+        buffer[count].state = (int)p->state;
+        init_name(buffer[count].name, p->name);
+        count++;
+    }
+
+    return (int)count;
+}
+
+PCB *create_process(char *name, void (*function)(void *), void *arg, int priority) {
+    if (name == NULL || function == NULL) {
         return NULL;
     }
 
-    uint64_t *sp = (uint64_t *)((uint8_t *)p->stack_base + STACK_SIZE);
-    uint64_t top = (uint64_t)sp;
+    PCB *p = get_free_slot();
+    if (p == NULL) {
+        return NULL;
+    }
 
-    // iretq frame (CPU pops these: rip, cs, rflags, rsp, ss)
-    *(--sp) = 0x0;                  // SS
-    *(--sp) = top;                  // RSP
-    *(--sp) = 0x202;                // RFLAGS: IF=1
-    *(--sp) = 0x8;                  // CS: kernel code segment
-    *(--sp) = (uint64_t)function;   // RIP
+    init_process_common(p, name, 1, priority, current_pid);
 
-    // GPR frame (popState pops r15 first -> r15 must be at lowest address)
-    *(--sp) = 0;                    // rax
-    *(--sp) = 0;                    // rbx
-    *(--sp) = 0;                    // rcx
-    *(--sp) = 0;                    // rdx
-    *(--sp) = 0;                    // rbp
-    *(--sp) = (uint64_t)arg;        // rdi  <- first argument
-    *(--sp) = 0;                    // rsi
-    *(--sp) = 0;                    // r8
-    *(--sp) = 0;                    // r9
-    *(--sp) = 0;                    // r10
-    *(--sp) = 0;                    // r11
-    *(--sp) = 0;                    // r12
-    *(--sp) = 0;                    // r13
-    *(--sp) = 0;                    // r14
-    *(--sp) = 0;                    // r15
+    p->stack_base = mm_alloc(STACK_SIZE);
+    if (p->stack_base == NULL) {
+        p->pid = 0; //si falla lo dejamos como slot libre
+        return NULL;
+    }
 
-    p->stack_pointer = sp;
+    void *stack_top = (void *)((uint8_t *)p->stack_base + STACK_SIZE);
+    p->stack_pointer = setProcessStackASM((void *)function, stack_top, arg);
+    p->base_pointer = p->stack_pointer;
     return p;
 }

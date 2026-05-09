@@ -1,5 +1,4 @@
 #include <stdint.h>
-#include <string.h>
 #include <lib.h>  
 #include <moduleLoader.h>
 #include <naiveConsole.h>
@@ -7,6 +6,7 @@
 #include <idtLoader.h>
 #include <interrupts.h>
 #include <memoryManager.h>
+#include <process.h>
 
 extern uint8_t text;
 extern uint8_t rodata;
@@ -106,6 +106,9 @@ int main(){
 	} else {
 		mm_init((void *)heap_start, 0);
 	}
+
+	process_system_init();
+	pcb_set_current("shell", 1, 1, 0);
 
 	// Capturar RSP antes del call para poder resetearlo en recuperacion de excepciones.
 	// Se resta 8 porque la instruccion call empuja la direccion de retorno al stack.

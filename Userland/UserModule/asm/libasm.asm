@@ -11,6 +11,14 @@ GLOBAL get_regs
 GLOBAL mem_alloc
 GLOBAL mem_free
 GLOBAL mem_status
+GLOBAL getpid
+GLOBAL kill_process
+GLOBAL block_process
+GLOBAL unblock_process
+GLOBAL nice_process
+GLOBAL waitpid
+GLOBAL ps
+GLOBAL yield_cpu
 GLOBAL _hlt
 GLOBAL _cli
 GLOBAL _sti
@@ -30,7 +38,15 @@ SYS_GET_REGS equ 9
 SYS_MEM_ALLOC equ 10
 SYS_MEM_FREE equ 11
 SYS_MEM_STATUS equ 12
-SYS_COUNT equ 13
+SYS_GETPID equ 13
+SYS_KILL equ 14
+SYS_BLOCK equ 15
+SYS_UNBLOCK equ 16
+SYS_NICE equ 17
+SYS_WAITPID equ 18
+SYS_PS equ 19
+SYS_YIELD equ 20
+SYS_COUNT equ 21
 
 ; Macro para syscall via int 0x80
 ; %1 = número de syscall
@@ -102,6 +118,44 @@ mem_free:
 ; rdi = status pointer
 mem_status:
     SYSCALL SYS_MEM_STATUS
+
+; int64_t getpid(void)
+getpid:
+    SYSCALL SYS_GETPID
+
+; int64_t kill_process(uint64_t pid)
+; rdi = pid
+kill_process:
+    SYSCALL SYS_KILL
+
+; int64_t block_process(uint64_t pid)
+; rdi = pid
+block_process:
+    SYSCALL SYS_BLOCK
+
+; int64_t unblock_process(uint64_t pid)
+; rdi = pid
+unblock_process:
+    SYSCALL SYS_UNBLOCK
+
+; int64_t nice_process(uint64_t pid, uint64_t new_priority)
+; rdi = pid, rsi = priority
+nice_process:
+    SYSCALL SYS_NICE
+
+; int64_t waitpid(int64_t pid)
+; rdi = pid
+waitpid:
+    SYSCALL SYS_WAITPID
+
+; int64_t ps(process_info *buffer, uint64_t max_entries)
+; rdi = buffer, rsi = max_entries
+ps:
+    SYSCALL SYS_PS
+
+; int64_t yield_cpu(void)
+yield_cpu:
+    SYSCALL SYS_YIELD
 
 _hlt:
 	sti

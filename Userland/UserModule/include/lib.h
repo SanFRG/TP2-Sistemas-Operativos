@@ -17,7 +17,15 @@ enum {
     SYS_MEM_ALLOC = 10,
     SYS_MEM_FREE = 11,
     SYS_MEM_STATUS = 12,
-    SYS_COUNT = 13
+    SYS_GETPID = 13,
+    SYS_KILL = 14,
+    SYS_BLOCK = 15,
+    SYS_UNBLOCK = 16,
+    SYS_NICE = 17,
+    SYS_WAITPID = 18,
+    SYS_PS = 19,
+    SYS_YIELD = 20,
+    SYS_COUNT = 21
 };
 
 // Register snapshot structure (must match kernel ExceptionFrame)
@@ -36,6 +44,15 @@ typedef struct {
     uint64_t failed_allocations;
 } MemoryStatus;
 
+typedef struct {
+    int pid;
+    int parent_pid;
+    int priority;
+    int foreground;
+    int state;
+    char name[32];
+} process_info;
+
 // Syscall wrappers (implemented in asm/libasm.asm)
 extern uint64_t read(char* buffer, int max_len);
 extern uint64_t write(int fd, const char* str, int len);
@@ -50,6 +67,14 @@ extern uint64_t get_regs(RegisterSnapshot* buffer);  // Get CPU registers snapsh
 extern void *mem_alloc(uint64_t size);
 extern uint64_t mem_free(void *ptr);
 extern uint64_t mem_status(MemoryStatus *status);
+extern int64_t getpid(void);
+extern int64_t kill_process(uint64_t pid);
+extern int64_t block_process(uint64_t pid);
+extern int64_t unblock_process(uint64_t pid);
+extern int64_t nice_process(uint64_t pid, uint64_t new_priority);
+extern int64_t waitpid(int64_t pid);
+extern int64_t ps(process_info *buffer, uint64_t max_entries);
+extern int64_t yield_cpu(void);
 
 extern void trigger_invalid_opcode(void);  // Trigger Invalid Opcode exception (for testing)
 

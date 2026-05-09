@@ -10,6 +10,7 @@
 #include <exceptions.h>
 #include <textConsole.h>
 #include <memoryManager.h>
+#include <process.h>
 
 // Variables externas desde interrupts.asm
 extern RegisterFrame user_snapshot;
@@ -30,7 +31,15 @@ void* syscall_table[SYS_COUNT] = {
     &sys_get_regs,       // 9: SYS_GET_REGS
     &sys_mem_alloc,      // 10: SYS_MEM_ALLOC
     &sys_mem_free,       // 11: SYS_MEM_FREE
-    &sys_mem_status      // 12: SYS_MEM_STATUS
+    &sys_mem_status,     // 12: SYS_MEM_STATUS
+    &sys_getpid,         // 13: SYS_GETPID
+    &sys_kill,           // 14: SYS_KILL
+    &sys_block,          // 15: SYS_BLOCK
+    &sys_unblock,        // 16: SYS_UNBLOCK
+    &sys_nice,           // 17: SYS_NICE
+    &sys_waitpid,        // 18: SYS_WAITPID
+    &sys_ps,             // 19: SYS_PS
+    &sys_yield           // 20: SYS_YIELD
 };
 
 // ========== SYSCALL HANDLERS ==========
@@ -209,5 +218,41 @@ uint64_t sys_mem_status(uint64_t status_ptr) {
     }
 
     mm_get_status((mm_status_t *)status_ptr);
+    return 0;
+}
+
+uint64_t sys_getpid(void) {
+    return (uint64_t)process_get_current_pid();
+}
+
+uint64_t sys_kill(uint64_t pid) {
+    return (uint64_t)process_kill((int)pid);
+}
+
+uint64_t sys_block(uint64_t pid) {
+    return (uint64_t)process_block((int)pid);
+}
+
+uint64_t sys_unblock(uint64_t pid) {
+    return (uint64_t)process_unblock((int)pid);
+}
+
+uint64_t sys_nice(uint64_t pid, uint64_t new_priority) {
+    return (uint64_t)process_set_priority((int)pid, (int)new_priority);
+}
+
+uint64_t sys_waitpid(uint64_t pid) {
+    return (uint64_t)process_wait((int)pid);
+}
+
+uint64_t sys_ps(uint64_t buffer_ptr, uint64_t max_entries) {
+    if (buffer_ptr == 0) {
+        return (uint64_t)-1;
+    }
+    return (uint64_t)process_list((process_info *)buffer_ptr, max_entries);
+}
+
+uint64_t sys_yield(void) {
+    _hlt();
     return 0;
 }

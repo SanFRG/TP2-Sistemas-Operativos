@@ -1,6 +1,8 @@
 void cmd_help(void);
 void cmd_time(void);
 void cmd_mem(void);
+void cmd_pid(void);
+void cmd_ps(void);
 void cmd_memtest(void);
 void cmd_test_mm(void);
 void cmd_registers(void);

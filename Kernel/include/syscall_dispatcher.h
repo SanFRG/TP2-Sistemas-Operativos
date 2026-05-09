@@ -20,7 +20,15 @@ enum {
     SYS_MEM_ALLOC = 10,    // Allocate memory
     SYS_MEM_FREE = 11,     // Free memory
     SYS_MEM_STATUS = 12,   // Query allocator status
-    SYS_COUNT = 13
+    SYS_GETPID = 13,       // Get current PID
+    SYS_KILL = 14,         // Kill process by PID
+    SYS_BLOCK = 15,        // Block process by PID
+    SYS_UNBLOCK = 16,      // Unblock process by PID
+    SYS_NICE = 17,         // Change process priority
+    SYS_WAITPID = 18,      // Wait for process termination
+    SYS_PS = 19,           // List process table
+    SYS_YIELD = 20,        // Yield CPU voluntarily
+    SYS_COUNT = 21
 };
 
 // Tabla de syscalls (array de punteros, accedida desde int 0x80)
@@ -40,5 +48,13 @@ uint64_t sys_get_regs(uint64_t buffer_ptr);
 uint64_t sys_mem_alloc(uint64_t size);
 uint64_t sys_mem_free(uint64_t ptr);
 uint64_t sys_mem_status(uint64_t status_ptr);
+uint64_t sys_getpid(void);
+uint64_t sys_kill(uint64_t pid);
+uint64_t sys_block(uint64_t pid);
+uint64_t sys_unblock(uint64_t pid);
+uint64_t sys_nice(uint64_t pid, uint64_t new_priority);
+uint64_t sys_waitpid(uint64_t pid);
+uint64_t sys_ps(uint64_t buffer_ptr, uint64_t max_entries);
+uint64_t sys_yield(void);
 
 #endif

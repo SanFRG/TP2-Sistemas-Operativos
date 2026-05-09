@@ -1,21 +1,48 @@
 ﻿#ifndef PROCESS_H
 #define PROCESS_H
 
+#include <stdint.h>
+
+#define PROCESS_NAME_LEN 32
+#define MAX_PROCESSES 64
+
 typedef enum { READY, RUNNING, BLOCKED, KILLED } ProcessState;
 
-typedef struct Process {
+typedef struct PCB {
     int pid;
-    char name[32];
+    char name[PROCESS_NAME_LEN];
     ProcessState state;
     int priority;
     void *stack_base;
     void *stack_pointer;
     int foreground;
     int parent_pid;
+    int children_count;
+    int fd[3];
+    int exit_code;
     void *base_pointer;
-    struct Process *next;
-} Process;
+    struct PCB *next;
+} PCB;
 
-Process *create_process(char *name, void (*function)(void *), void *arg, int priority);
+typedef struct {
+    int pid;
+    int parent_pid;
+    int priority;
+    int foreground;
+    int state;
+    char name[PROCESS_NAME_LEN];
+} process_info; //separado más que nada por el ps y evitar que se acceda a info clave desde userland..TODO:ver si quitar o no
+
+void process_system_init(void);
+int pcb_set_current(const char *name, int foreground, int priority, int parent_pid);
+int process_get_current_pid(void);
+int process_kill(int pid);
+int process_block(int pid);
+int process_unblock(int pid);
+int process_set_priority(int pid, int new_priority);
+int process_wait(int pid);
+int process_list(process_info *buffer, uint64_t max_entries);
+
+PCB *create_process(char *name, void (*function)(void *), void *arg, int priority);
 
 #endif

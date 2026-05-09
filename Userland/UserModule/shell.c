@@ -8,6 +8,7 @@
 #define MAX_MM_BLOCKS 128
 #define TEST_MM_ITERS 40
 #define TEST_MM_MAX_MEMORY (128 * 1024)
+#define MAX_PS_ENTRIES 64
 #define NULL ((void*)0)
 int shell_exit = 0;
 char buffer[BUFFER_SIZE];
@@ -23,6 +24,8 @@ static Command commands[] = {
     {"help", cmd_help},
     {"time", cmd_time},
     {"mem", cmd_mem},
+    {"pid", cmd_pid},
+    {"ps", cmd_ps},
     {"memtest", cmd_memtest},
     {"test_mm", cmd_test_mm},
     {"regs", cmd_registers},
@@ -80,6 +83,8 @@ void cmd_help(void) {
     println("  help       - Muestra este mensaje de ayuda");
     println("  time       - Muestra la fecha y hora actual");
     println("  mem        - Muestra el estado del memory manager");
+    println("  pid        - Muestra el PID del proceso actual");
+    println("  ps         - Lista procesos activos");
     println("  memtest    - Ejecuta alloc/free de prueba para el memory manager");
     println("  test_mm    - Test de stress de alloc/free (iteraciones acotadas)");
     println("  regs       - Muestra los registros guardados");
@@ -114,6 +119,48 @@ void cmd_time(void) {
     print2Digits(mm); print(":");
     print2Digits(ss);
     print("\n");
+}
+
+void cmd_pid(void) {
+    int64_t pid = getpid();
+    if (pid < 0) {
+        println("Error: no se pudo obtener el PID actual.");
+        return;
+    }
+
+    print("PID actual: ");
+    printInt((int)pid);
+    print("\n");
+}
+
+static const char *state_to_str(int state) {
+    switch (state) {
+        case 0: return "READY";
+        case 1: return "RUNNING";
+        case 2: return "BLOCKED";
+        case 3: return "KILLED";
+        default: return "UNKNOWN";
+    }
+}
+
+void cmd_ps(void) {
+    process_info entries[MAX_PS_ENTRIES];
+    int64_t count = ps(entries, MAX_PS_ENTRIES);
+
+    if (count < 0) {
+        println("Error: no se pudo listar procesos.");
+        return;
+    }
+
+    println("PID PPID PRIO FG STATE     NAME");
+    for (int i = 0; i < count; i++) {
+        printInt(entries[i].pid); print(" ");
+        printInt(entries[i].parent_pid); print(" ");
+        printInt(entries[i].priority); print(" ");
+        printInt(entries[i].foreground); print(" ");
+        print(state_to_str(entries[i].state)); print(" ");
+        println(entries[i].name);
+    }
 }
 
 typedef struct {

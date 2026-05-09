@@ -2,6 +2,7 @@ GLOBAL cpuVendor
 GLOBAL outb
 GLOBAL inb
 GLOBAL capture_regs
+GLOBAL setProcessStackASM
 
 section .text
 	
@@ -79,7 +80,42 @@ capture_regs:
 	mov [rdi + 18*8], rax   
 	
 	mov rax, ss
-	mov [rdi + 19*8], rax
-	
+		mov [rdi + 19*8], rax
+		
+		ret
+
+; rdi: entry point (RIP)
+; rsi: stack top
+; rdx: first argument to process function (RDI)
+setProcessStackASM:
+	mov r9, rsp ; guardo rsp actual en r9 ya que es caller-saved
+	mov rsp, rsi ; cambio al del proceso nuevo
+
+	; iretq frame: SS, RSP, RFLAGS, CS, RIP
+	push 0x0
+	push rsi
+	push 0x202
+	push 0x08
+	push rdi
+
+	; GPR frame matching popState order expectations
+	push 0x0 ; rax
+	push 0x0 ; rbx
+	push 0x0 ; rcx
+	push 0x0 ; rdx
+	push 0x0 ; rbp
+	push rdx ; rdi
+	push 0x0 ; rsi
+	push 0x0 ; r8
+	push 0x0 ; r9
+	push 0x0 ; r10
+	push 0x0 ; r11
+	push 0x0 ; r12
+	push 0x0 ; r13
+	push 0x0 ; r14
+	push 0x0 ; r15
+
+	mov rax, rsp ; devuelvo el rsp del proceso armado
+	mov rsp, r9
 	ret
 

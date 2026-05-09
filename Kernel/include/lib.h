@@ -14,5 +14,6 @@ void outb(uint16_t port, uint8_t value);
 uint8_t inb(uint16_t port);
 
 void capture_regs(void* buffer);
+void *setProcessStackASM(void *entry_point, void *stack_top, void *arg);
 
 #endif
