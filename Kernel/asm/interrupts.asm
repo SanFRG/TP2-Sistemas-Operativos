@@ -25,6 +25,9 @@ EXTERN irqDispatcher
 EXTERN exceptionDispatcher
 EXTERN syscall_table
 EXTERN defaultInterruptDispatcher
+EXTERN scheduler_switch
+
+GLOBAL _yield
 
 SECTION .text
 
@@ -166,9 +169,24 @@ picSlaveMask:
     retn
 
 
-;Timer Tick
+;Timer Tick - hace el cambio de contexto (scheduler)
 _irq00Handler:
-	irqHandlerMaster 0
+	pushState                 ; guarda los 15 GPR del proceso interrumpido
+
+	mov rdi, 0
+	call irqDispatcher        ; tick del timer (getTicks, sleep, etc.)
+
+	mov al, 20h               ; EOI al PIC master
+	out 20h, al				  
+
+	; En este punto rsp apunta al contexto completo del proceso actual
+	; ([r15..rax | RIP,CS,RFLAGS,RSP,SS]). Se lo pasamos al scheduler.
+	mov rdi, rsp
+	call scheduler_switch     ; devuelve en rax el rsp del proximo proceso
+	mov rsp, rax              ; <-- CAMBIO DE CONTEXTO: cambiar de stack
+
+	popState                  ; restaura los GPR del proceso elegido
+	iretq                     ; restaura RIP/CS/RFLAGS/RSP/SS del elegido
 
 ;Keyboard
 _irq01Handler:
@@ -227,6 +245,12 @@ _exception6Handler:
 haltcpu:
 	cli
 	hlt
+	ret
+
+; yield: cede el CPU invocando por software la interrupcion del timer.
+; Reusa _irq00Handler, que hace el cambio de contexto.
+_yield:
+	int 20h
 	ret
 
 SECTION .bss

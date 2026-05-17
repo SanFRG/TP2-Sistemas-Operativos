@@ -165,6 +165,37 @@ Implementar multitasking preemptivo con Round Robin con prioridades.
 - `loop` debe hacer espera activa porque el enunciado lo pide asi.
 - Los tests `test_proc` y `test_prio` dependen de esta etapa.
 
+tener en cuenta:1. process_wait no bloquea — process.c:156
+El código actual:
+
+
+int process_wait(int pid) {
+    PCB *p = get_process_by_pid(pid);
+    if (p == NULL) return -1;
+    if (current_pid != -1 && p->parent_pid != current_pid) return -1;
+    if (p->state != KILLED && p->state != TERMINATED) { // si el hijo sigue vivo retorno -1
+        return -1;
+    }
+    // ... recién acá libera el stack y limpia el slot
+}
+El problema conceptual: wait (estilo waitpid de UNIX) significa "el padre se duerme hasta que el hijo termine". Acá, si el hijo todavía está vivo (READY/RUNNING/BLOCKED), la función simplemente devuelve -1 y vuelve enseguida.
+
+Qué obliga a hacer eso del lado del que llama: el padre que quiere esperar a su hijo tiene que escribir algo así:
+
+
+while (waitpid(hijo) == -1) {
+    // el hijo todavía vive... reintento
+}
+Eso es busy-wait: el padre consume CPU al 100% chequeando una y otra vez, sin producir trabajo útil. El roadmap lo prohíbe explícitamente (etapa 3 "esperar hijos", y la regla general "no busy waiting").
+
+Cómo debería ser: cuando el hijo sigue vivo, process_wait debe:
+
+Poner al proceso padre (el que llama) en estado BLOCKED.
+Anotar a qué PID está esperando (necesitás un campo en el PCB, p. ej. int waiting_for_pid;).
+Ceder el CPU al scheduler (yield).
+Cuando el hijo termina (en su exit/kill), el kernel debe buscar si algún padre estaba bloqueado esperándolo y pasarlo a READY.
+O sea, wait solo recolecta (libera stack + limpia slot) cuando el hijo ya murió; si no, bloquea. Esto depende del scheduler, así que no se puede terminar hasta tener la etapa 4–5.
+
 ## 6. Semaforos
 
 ### Objetivo

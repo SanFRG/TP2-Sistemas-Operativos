@@ -80,13 +80,13 @@ uint64_t sys_write(uint64_t fd, uint64_t str_ptr, uint64_t length) {
 
 uint64_t sys_read(uint64_t buffer, uint64_t max_len) {
     char* buf = (char*)buffer;
-    int i = 0;
-    
+    uint64_t i = 0;
+
     if (max_len == 0) {
         return 0;
     }
-    
-    while (i < max_len - 1) {  // Reserve space for null terminator
+
+    while (i + 1 < max_len) {  // Reserve space for null terminator
         // Wait for a key
         while (!hasNextKey()) {
             _hlt();  // Halt until next interrupt
@@ -120,12 +120,12 @@ uint64_t sys_read(uint64_t buffer, uint64_t max_len) {
         } else if (c == '\t') {
             // Tab: expand to spaces (tab stop = 4)
             // Calculate current column (relative to margin)
-            int col = i;  // Simplified: use buffer position as column
+            int col = (int)i;  // Simplified: use buffer position as column
             int next_stop = ((col / 4) + 1) * 4;
             int spaces = next_stop - col;
-            
+
             // Add spaces to buffer and echo them
-            for (int j = 0; j < spaces && i < max_len - 1; j++) {
+            for (int j = 0; j < spaces && i + 1 < max_len; j++) {
                 buf[i++] = ' ';
                 sys_write(1, (uint64_t)" ", 1);
             }
@@ -254,7 +254,7 @@ uint64_t sys_ps(uint64_t buffer_ptr, uint64_t max_entries) {
 }
 
 uint64_t sys_yield(void) {
-    _hlt();
+    _yield();
     return 0;
 }
 

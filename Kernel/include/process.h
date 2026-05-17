@@ -44,4 +44,8 @@ int process_wait(int pid);
 int process_list(process_info *buffer, uint64_t max_entries);
 int process_create(const char *name, void (*function)(void *), void *arg, int priority, int foreground);
 
+// Cambio de contexto: recibe el rsp del proceso interrumpido y devuelve
+// el rsp del proximo proceso a correr. La invoca el handler del timer.
+void *scheduler_switch(void *current_rsp);
+
 #endif

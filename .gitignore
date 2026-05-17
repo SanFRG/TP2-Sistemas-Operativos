@@ -12,3 +12,6 @@
 
 #Bash history
 .bash_history
+
+#Build artifacts (marcador del memory manager elegido)
+Kernel/.mm_memoryManager
