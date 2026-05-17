@@ -6,6 +6,12 @@
 #define PROCESS_NAME_LEN 32
 #define MAX_PROCESSES 64
 
+// Rango de prioridades del scheduler. Mayor numero = mas prioridad =
+// mas ticks de CPU por turno.
+#define MIN_PRIORITY 0
+#define MAX_PRIORITY 2
+#define DEFAULT_PRIORITY 1
+
 typedef enum { READY, RUNNING, BLOCKED, KILLED, TERMINATED } ProcessState;
 
 typedef struct PCB {

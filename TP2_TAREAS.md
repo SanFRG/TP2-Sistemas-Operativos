@@ -396,3 +396,10 @@ Preparar el repositorio para entrega y defensa.
 - `mvar`.
 - Pulido de README.
 - Casos borde y ejemplos extra para defensa.
+
+
+borrar: Cuando termines de verificar, en kernel.c:
+
+Borrá el bloque DEMO: prueba del cambio de contexto (las funciones test_delay, uint_to_str, test_process, launch_context_demo).
+Borrá la línea launch_context_demo(); en main().
+Sacá el #include <textConsole.h> si no lo usás en otro lado.

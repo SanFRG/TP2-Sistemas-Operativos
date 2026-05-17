@@ -144,34 +144,22 @@ int process_kill(int pid) {
 
 int process_block(int pid) {
     PCB *p = get_process_by_pid(pid);
-    
-    if (p == NULL || p->state != RUNNING) {//preguntar
+    if (p == NULL || pid == idle_pid) {  // al idle no se lo bloquea
+        return -1;
+    }
+    // Solo se puede bloquear algo que corre o esta listo para correr.
+    // Ya BLOCKED / KILLED / TERMINATED -> no hay nada que hacer.
+    if (p->state != RUNNING && p->state != READY) {
         return -1;
     }
 
     p->state = BLOCKED;
 
     if (pid == current_pid) {
-        _yield();
-    }
-
-    return 0;
-}
-
-/*
-int process_block(int pid) {
-    PCB *p = get_process_by_pid(pid);
-    if (p == NULL) return -1;
-    if (p->state != READY && p->state != RUNNING) return -1; // no bloquear KILLED/TERMINATED/ya BLOCKED
-    p->state = BLOCKED;
-    // si bloqueaste al proceso actual, hay que ceder el CPU al scheduler
-    if (pid == current_pid) {
-        yield();
+        _yield();   // si me bloquee a mi mismo, cedo el CPU ya mismo
     }
     return 0;
 }
-
-*/
 
 int process_unblock(int pid) {
     PCB *p = get_process_by_pid(pid);
@@ -184,8 +172,13 @@ int process_unblock(int pid) {
 
 int process_set_priority(int pid, int new_priority) {
     PCB *p = get_process_by_pid(pid);
-    if (p == NULL || p->state == KILLED || new_priority < 0) {
+    if (p == NULL || p->state == KILLED) {
         return -1;
+    }
+    if (new_priority < MIN_PRIORITY) {
+        new_priority = MIN_PRIORITY;
+    } else if (new_priority > MAX_PRIORITY) {
+        new_priority = MAX_PRIORITY;
     }
     p->priority = new_priority;
     return 0;
@@ -277,15 +270,28 @@ int process_create(const char *name, void (*function)(void *), void *arg, int pr
     return p->pid;
 }
 
-/* ===================== Scheduler (Round Robin simple) =====================
+/* ================= Scheduler (Round Robin con prioridades) =================
  *
- * Round Robin sin prioridades: se recorre la tabla de procesos de forma
- * circular y se le da el CPU al proximo proceso en estado READY.
+ * Se recorre la tabla de procesos de forma circular (eso garantiza que
+ * ningun proceso sufra starvation: a todos les toca turno en cada vuelta).
+ * La prioridad no decide QUIEN corre, sino CUANTO corre: cada proceso
+ * recibe (prioridad + 1) ticks del timer por turno.
  */
 
 // Indice en process_table del proceso que corrio ultimo (punto de partida
 // para la busqueda circular del round robin).
 static int last_index = 0;
+
+// Ticks de timer que le quedan al proceso actual en su turno.
+static int current_quantum = 0;
+
+// Cantidad de ticks que le corresponde a un proceso segun su prioridad.
+static int quantum_for(PCB *p) {
+    int prio = p->priority;
+    if (prio < MIN_PRIORITY) prio = MIN_PRIORITY;
+    if (prio > MAX_PRIORITY) prio = MAX_PRIORITY;
+    return prio + 1;
+}
 
 // Devuelve el indice del proximo proceso READY recorriendo la tabla de
 // forma circular a partir del que corrio ultimo. -1 si no hay ninguno.
@@ -307,17 +313,25 @@ static int pick_next_ready(void) {
 void *scheduler_switch(void *current_rsp) {
     PCB *current = get_process_by_pid(current_pid);
 
-    // 1. Guardar el contexto del proceso que venia corriendo.
-    //    El contexto YA esta en el stack; solo guardamos el puntero.
+    // 1. Guardar siempre el contexto del proceso actual.
     if (current != NULL) {
         current->stack_pointer = current_rsp;
-        if (current->state == RUNNING) {
-            current->state = READY;   // vuelve a la cola de listos
-        }
-        // Si quedo BLOCKED/KILLED/TERMINATED se respeta ese estado.
     }
 
-    // 2. Elegir el proximo proceso READY.
+    // 2. Si el proceso actual sigue RUNNING y todavia le queda quantum,
+    //    lo dejamos seguir: no hay cambio de contexto en este tick.
+    if (current != NULL && current->state == RUNNING && current_quantum > 1) {
+        current_quantum--;
+        return current_rsp;
+    }
+
+    // 3. Se agoto el quantum (o el proceso se bloqueo / murio): hay que
+    //    rotar. Si seguia RUNNING, vuelve a la cola de listos.
+    if (current != NULL && current->state == RUNNING) {
+        current->state = READY;
+    }
+
+    // 4. Elegir el proximo proceso READY (round robin circular).
     int idx = pick_next_ready();
     if (idx < 0) {
         // No hay ningun proceso normal listo: corre el proceso idle.
@@ -325,16 +339,18 @@ void *scheduler_switch(void *current_rsp) {
         if (idle != NULL) {
             idle->state = RUNNING;
             current_pid = idle_pid;
+            current_quantum = quantum_for(idle);
             return idle->stack_pointer;
         }
         // Caso degenerado: ni siquiera existe el idle.
         return current_rsp;
     }
 
-    // 3. Activar al elegido y devolver su rsp guardado.
+    // 5. Activar al elegido y asignarle su quantum segun la prioridad.
     PCB *next = &process_table[idx];
     next->state = RUNNING;
     last_index = idx;
     current_pid = next->pid;
+    current_quantum = quantum_for(next);
     return next->stack_pointer;
 }

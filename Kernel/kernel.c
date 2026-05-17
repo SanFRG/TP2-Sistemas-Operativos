@@ -7,6 +7,7 @@
 #include <interrupts.h>
 #include <memoryManager.h>
 #include <process.h>
+#include <textConsole.h>
 
 extern uint8_t text;
 extern uint8_t rodata;
@@ -93,6 +94,85 @@ void * initializeKernelBinary()
 	return getStackBase();
 }
 
+/* ===================== DEMO: prueba del cambio de contexto =====================
+ *
+ * Codigo de prueba del Stage 4. Crea procesos que incrementan un contador
+ * propio y lo muestran en una fila fija de la pantalla. Si el scheduler
+ * funciona, los contadores avanzan "a la vez" y la shell sigue respondiendo.
+ *
+ * Para sacar la demo: borrar este bloque y la llamada a launch_context_demo()
+ * en main().
+ */
+
+// Espera activa para que la actualizacion del contador sea visible.
+static void test_delay(void) {
+    for (volatile uint64_t i = 0; i < 4000000; i++);
+}
+
+// Convierte un entero sin signo a string decimal.
+static void uint_to_str(uint64_t value, char *buf) {
+    char tmp[21];
+    int n = 0;
+    if (value == 0) {
+        tmp[n++] = '0';
+    }
+    while (value > 0) {
+        tmp[n++] = (char)('0' + (value % 10));
+        value /= 10;
+    }
+    int j = 0;
+    while (n > 0) {
+        buf[j++] = tmp[--n];
+    }
+    buf[j] = '\0';
+}
+
+// Funcion que ejecuta cada proceso de prueba: loop infinito que muestra
+// su contador. Nunca termina ni cede el CPU: depende del timer para
+// ser desalojado (eso es justo lo que prueba el cambio de contexto).
+static void test_process(void *arg) {
+    uint64_t id = (uint64_t)arg;            // 0, 1, 2
+    uint8_t row = (uint8_t)(22 + id);
+    uint64_t count = 0;
+
+    const char *labels[3] = {
+        "[A prio-baja  (0)] vueltas: ",
+        "[B prio-media (2)] vueltas: ",
+        "[C prio-alta  (4)] vueltas: "
+    };
+    const char *prefix = labels[id];
+
+    while (1) {
+        char line[80];
+        int p = 0;
+        for (int k = 0; prefix[k] != 0; k++) {
+            line[p++] = prefix[k];
+        }
+
+        char num[21];
+        uint_to_str(count, num);
+        for (int k = 0; num[k] != 0; k++) {
+            line[p++] = num[k];
+        }
+        while (p < 55) {                    // rellena para borrar digitos viejos
+            line[p++] = ' ';
+        }
+
+        tc_write_at(line, (uint64_t)p, 0, row);
+        count++;
+        test_delay();
+    }
+}
+
+// Crea los procesos de prueba con distinta prioridad. Si el scheduler
+// del stage 5 funciona, el contador de prioridad alta avanza mucho mas
+// rapido que el de prioridad baja, pero los tres siguen avanzando.
+static void launch_context_demo(void) {
+    process_create("testA", test_process, (void *)0, MIN_PRIORITY,     0);
+    process_create("testB", test_process, (void *)1, 2,                0);
+    process_create("testC", test_process, (void *)2, MAX_PRIORITY,     0);
+}
+
 int main(){
 	uint64_t heap_start = align_up((uint64_t)&endOfKernel + (PageSize * 8), heapAlignment);
 	uint64_t heap_end = (uint64_t)userCodeModuleAddress;
@@ -109,6 +189,9 @@ int main(){
 
 	process_system_init();
 	pcb_set_current("shell", 1, 1, 0);
+
+	// DEMO Stage 4: crear procesos de prueba del cambio de contexto.
+	launch_context_demo();
 
 	// Capturar RSP antes del call para poder resetearlo en recuperacion de excepciones.
 	// Se resta 8 porque la instruccion call empuja la direccion de retorno al stack.
