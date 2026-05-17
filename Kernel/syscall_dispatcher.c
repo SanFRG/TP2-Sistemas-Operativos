@@ -40,7 +40,8 @@ void* syscall_table[SYS_COUNT] = {
     &sys_waitpid,        // 18: SYS_WAITPID
     &sys_ps,             // 19: SYS_PS
     &sys_yield,          // 20: SYS_YIELD
-    &sys_create_process  // 21: SYS_CREATE_PROCESS
+    &sys_create_process, // 21: SYS_CREATE_PROCESS
+    &sys_exit            // 22: SYS_EXIT
 };
 
 // ========== SYSCALL HANDLERS ==========
@@ -256,6 +257,12 @@ uint64_t sys_ps(uint64_t buffer_ptr, uint64_t max_entries) {
 uint64_t sys_yield(void) {
     _yield();
     return 0;
+}
+
+// SYS_EXIT: termina el proceso actual. No retorna (process_exit cede el CPU).
+uint64_t sys_exit(uint64_t exit_code) {
+    process_exit((int)exit_code);
+    return 0;  // formal: process_exit nunca devuelve el control aca
 }
 
 uint64_t sys_create_process(uint64_t name_ptr, uint64_t entry_ptr, uint64_t arg_ptr, uint64_t priority, uint64_t foreground) {

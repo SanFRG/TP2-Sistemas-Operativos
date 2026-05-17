@@ -212,8 +212,8 @@ _irq05Handler:
 _irq80Handler:
 	pushState
 
-	; Validar que el numero de syscall sea valido (rax < SYS_COUNT = 22)
-	cmp rax, 22
+	; Validar que el numero de syscall sea valido (rax < SYS_COUNT = 23)
+	cmp rax, 23
 	jae .invalid_syscall
 
 	; Cargar direccion del handler desde la tabla

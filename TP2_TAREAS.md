@@ -279,6 +279,9 @@ Convertir la shell en un lanzador real de procesos.
 - El enunciado no pide pipes encadenados tipo `p1 | p2 | p3`; alcanza con uno.
 - El parser puede ser simple, pero debe manejar espacios y argumentos.
 
+foreground/background no se usa. El PCB tiene el campo pero el scheduler lo ignora, y no está definido "qué pasa cuando muere un proceso foreground". Eso se cierra con la shell (stage 8).
+
+
 ## 9. Aplicaciones y Tests de Userland
 
 ### Objetivo
@@ -403,3 +406,6 @@ borrar: Cuando termines de verificar, en kernel.c:
 Borrá el bloque DEMO: prueba del cambio de contexto (las funciones test_delay, uint_to_str, test_process, launch_context_demo).
 Borrá la línea launch_context_demo(); en main().
 Sacá el #include <textConsole.h> si no lo usás en otro lado.
+
+
+tener en cuenta: Procesos zombie: un proceso TERMINATED cuyo padre nunca llama a wait queda en la tabla ocupando un slot para siempre. Y si el padre muere antes que el hijo, nadie va a recolectar a ese hijo. El roadmap (stage 3) menciona esto como algo a definir — una solución sería que, al morir un proceso, sus hijos se reasignen a un proceso "init" que los recolecte, o reaparlos al salir. Por ahora queda como limitación documentada.

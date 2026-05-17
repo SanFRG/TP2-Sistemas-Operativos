@@ -26,7 +26,8 @@ enum {
     SYS_PS = 19,
     SYS_YIELD = 20,
     SYS_CREATE_PROCESS = 21,
-    SYS_COUNT = 22
+    SYS_EXIT = 22,
+    SYS_COUNT = 23
 };
 
 // Register snapshot structure (must match kernel ExceptionFrame)
@@ -77,6 +78,7 @@ extern int64_t waitpid(int64_t pid);
 extern int64_t ps(process_info *buffer, uint64_t max_entries);
 extern int64_t yield_cpu(void);
 extern int64_t create_process(char *name, void (*entry_point)(void *), void *arg, uint64_t priority, uint64_t foreground);
+extern void exit_process(int exit_code);  // Termina el proceso actual (no retorna)
 
 extern void trigger_invalid_opcode(void);  // Trigger Invalid Opcode exception (for testing)
 

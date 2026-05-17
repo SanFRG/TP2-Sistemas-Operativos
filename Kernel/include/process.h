@@ -26,6 +26,7 @@ typedef struct PCB {
     int children_count;
     int fd[3];
     int exit_code;
+    int waiting_for_pid;   // PID del hijo que este proceso espera con wait (0 = ninguno)
     void *base_pointer;
     struct PCB *next;
 } PCB;
@@ -49,6 +50,10 @@ int process_set_priority(int pid, int new_priority);
 int process_wait(int pid);
 int process_list(process_info *buffer, uint64_t max_entries);
 int process_create(const char *name, void (*function)(void *), void *arg, int priority, int foreground);
+
+// Termina el proceso actual de forma ordenada. La llama el wrapper cuando
+// la funcion del proceso retorna; tambien sirve como syscall de exit.
+void process_exit(int exit_code);
 
 // Cambio de contexto: recibe el rsp del proceso interrumpido y devuelve
 // el rsp del proximo proceso a correr. La invoca el handler del timer.

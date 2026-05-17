@@ -20,6 +20,7 @@ GLOBAL waitpid
 GLOBAL ps
 GLOBAL yield_cpu
 GLOBAL create_process
+GLOBAL exit_process
 GLOBAL _hlt
 GLOBAL _cli
 GLOBAL _sti
@@ -48,7 +49,8 @@ SYS_WAITPID equ 18
 SYS_PS equ 19
 SYS_YIELD equ 20
 SYS_CREATE_PROCESS equ 21
-SYS_COUNT equ 22
+SYS_EXIT equ 22
+SYS_COUNT equ 23
 
 ; Macro para syscall via int 0x80
 ; %1 = número de syscall
@@ -163,6 +165,11 @@ yield_cpu:
 ; rdi = name, rsi = entry_point, rdx = arg, rcx = priority, r8 = foreground
 create_process:
     SYSCALL SYS_CREATE_PROCESS
+
+; void exit_process(int exit_code)
+; rdi = exit_code  (no retorna: el kernel termina el proceso)
+exit_process:
+    SYSCALL SYS_EXIT
 
 _hlt:
 	sti

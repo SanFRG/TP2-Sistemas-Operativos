@@ -35,7 +35,10 @@ static void init_name(char *dst, const char *src) {
 static void init_process_common(PCB *p, const char *name, int foreground, int priority, int parent_pid) {
     p->pid = generate_pid();
     init_name(p->name, name);
-    p->state = READY;
+    // Nace BLOCKED (no elegible) a proposito: el scheduler no debe poder
+    // elegirlo hasta que el PCB este completo. process_create lo pasa a
+    // READY al final; pcb_set_current lo pasa a RUNNING.
+    p->state = BLOCKED;
     p->priority = priority;
     p->foreground = foreground;
     p->parent_pid = parent_pid;
@@ -44,6 +47,7 @@ static void init_process_common(PCB *p, const char *name, int foreground, int pr
     p->fd[1] = 1;
     p->fd[2] = 2;
     p->exit_code = 0;
+    p->waiting_for_pid = 0;
     p->stack_base = NULL;
     p->stack_pointer = NULL;
     p->base_pointer = NULL;
@@ -69,6 +73,16 @@ static PCB *get_free_slot(void) {
         }
     }
     return NULL;
+}
+
+// Si el padre de 'child' estaba bloqueado esperandolo con wait, lo despierta.
+static void wake_parent_if_waiting(PCB *child) {
+    PCB *parent = get_process_by_pid(child->parent_pid);
+    if (parent != NULL && parent->state == BLOCKED &&
+        parent->waiting_for_pid == child->pid) {
+        parent->waiting_for_pid = 0;
+        parent->state = READY;
+    }
 }
 
 void process_system_init(void) {
@@ -108,6 +122,7 @@ static void clear_pcb_slot(PCB *p) {
     p->fd[1] = 0;
     p->fd[2] = 0;
     p->exit_code = 0;
+    p->waiting_for_pid = 0;
     p->base_pointer = NULL;
     p->next = NULL;
 }
@@ -139,6 +154,7 @@ int process_kill(int pid) {
 
     p->state = KILLED;
     p->exit_code = -1;
+    wake_parent_if_waiting(p);
     return 0;
 }
 
@@ -185,28 +201,34 @@ int process_set_priority(int pid, int new_priority) {
 }
 
 int process_wait(int pid) {
-    PCB *p = get_process_by_pid(pid);
-    if (p == NULL) {
+    PCB *child = get_process_by_pid(pid);
+    PCB *me = get_process_by_pid(current_pid);
+    if (child == NULL || me == NULL) {
         return -1;
     }
-    if (current_pid != -1 && p->parent_pid != current_pid) { //valido que sea un proceso padre para hacer wait
+    if (child->parent_pid != current_pid) {  // solo se espera a hijos propios
         return -1;
     }
-    if (p->state != KILLED && p->state != TERMINATED) { //si el hijo sigue vivo retorno -1, si terminó ahi recien hago el clean
-        return -1; 
-    }
 
-    if (p->stack_base != NULL) {
-        mm_free(p->stack_base);
+    // Mientras el hijo siga vivo, me bloqueo. process_exit / process_kill
+    // me pasan a READY cuando el hijo termina, y vuelvo a chequear.
+    while (child->state != KILLED && child->state != TERMINATED) {
+        me->waiting_for_pid = pid;
+        me->state = BLOCKED;
+        _yield();   // cedo el CPU; no es busy wait, quedo bloqueado
     }
+    me->waiting_for_pid = 0;
 
-    PCB *parent = get_process_by_pid(p->parent_pid);
-    if (parent != NULL && parent->children_count > 0) {
-        parent->children_count--;
+    // El hijo termino: recolectar su stack y liberar su slot.
+    int code = child->exit_code;
+    if (child->stack_base != NULL) {
+        mm_free(child->stack_base);
     }
-
-    clear_pcb_slot(p);
-    return 0;
+    if (me->children_count > 0) {
+        me->children_count--;
+    }
+    clear_pcb_slot(child);
+    return code;
 }
 
 int process_list(process_info *buffer, uint64_t max_entries) {
@@ -231,6 +253,28 @@ int process_list(process_info *buffer, uint64_t max_entries) {
     }
 
     return (int)count;
+}
+
+// Termina el proceso actual de forma ordenada.
+void process_exit(int exit_code) {
+    PCB *me = get_process_by_pid(current_pid);
+    if (me != NULL) {
+        me->state = TERMINATED;
+        me->exit_code = exit_code;
+        wake_parent_if_waiting(me);   // si el padre esperaba, lo despierta
+    }
+    _yield();                 // cede el CPU; el scheduler ya no nos elige
+    while (1) {               // por las dudas: no debe volver nunca
+        _yield();
+    }
+}
+
+// Envoltorio con el que arranca TODO proceso. Llama a la funcion real y,
+// si esta retorna, termina el proceso ordenadamente en vez de saltar a
+// una direccion de retorno basura.
+static void process_wrapper(void (*fn)(void *), void *arg) {
+    fn(arg);
+    process_exit(0);
 }
 
 int process_create(const char *name, void (*function)(void *), void *arg, int priority, int foreground) {
@@ -259,7 +303,10 @@ int process_create(const char *name, void (*function)(void *), void *arg, int pr
     top &= ~0xFULL;
     top -= 8;
     void *stack_top = (void *)top;
-    p->stack_pointer = setProcessStackASM((void *)function, stack_top, arg);
+    // El proceso arranca en process_wrapper, que recibe (funcion, arg).
+    // Asi, si la funcion retorna, el wrapper llama a process_exit.
+    p->stack_pointer = setProcessStackASM((void *)process_wrapper, stack_top,
+                                          (void *)function, arg);
     p->base_pointer = p->stack_pointer;
 
     PCB *parent = get_process_by_pid(current_pid); //p->hijo, parent->proceso actual
@@ -267,6 +314,10 @@ int process_create(const char *name, void (*function)(void *), void *arg, int pr
         parent->children_count++;
     }
 
+    // Ultimo paso: con el PCB ya completo (stack incluido), lo hacemos
+    // elegible. Este unico store atomico "publica" el proceso; si un timer
+    // lo interrumpe antes, lo ve BLOCKED y no lo elige a medio armar.
+    p->state = READY;
     return p->pid;
 }
 

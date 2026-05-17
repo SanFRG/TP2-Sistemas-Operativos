@@ -86,7 +86,8 @@ capture_regs:
 
 ; rdi: entry point (RIP)
 ; rsi: stack top
-; rdx: first argument to process function (RDI)
+; rdx: valor para RDI del proceso (1er argumento de la funcion)
+; rcx: valor para RSI del proceso (2do argumento de la funcion)
 setProcessStackASM:
 	mov r9, rsp ; guardo rsp actual en r9 ya que es caller-saved
 	mov rsp, rsi ; cambio al del proceso nuevo
@@ -105,7 +106,7 @@ setProcessStackASM:
 	push 0x0 ; rdx
 	push 0x0 ; rbp
 	push rdx ; rdi
-	push 0x0 ; rsi
+	push rcx ; rsi
 	push 0x0 ; r8
 	push 0x0 ; r9
 	push 0x0 ; r10
