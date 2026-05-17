@@ -10,8 +10,6 @@ static PCB process_table[MAX_PROCESSES];//TODO:ver si mas adelante nos conviene 
 static int next_pid = 1; //0 lo dejamos como valor vacio/no asignado para el boot y etc
 static int current_pid = -1;
 
-static void clear_pcb_slot(PCB *p);
-
 static int generate_pid(void) {
     return next_pid++;
 }
@@ -188,7 +186,7 @@ int process_list(process_info *buffer, uint64_t max_entries) {
     uint64_t count = 0;
     for (int i = 0; i < MAX_PROCESSES && count < max_entries; i++) {
         PCB *p = &process_table[i];
-        if (p->pid == 0 || p->state == KILLED) {
+        if (p->pid == 0 || p->state == KILLED) { TODO: mejorar codigo
             continue;
         }
 
@@ -230,6 +228,7 @@ int process_create(const char *name, void (*function)(void *), void *arg, int pr
     if (parent != NULL) {
         parent->children_count++;
     }
+
 
     return p->pid;
 }
