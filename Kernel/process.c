@@ -165,7 +165,7 @@ int process_block(int pid) {
     }
     // Solo se puede bloquear algo que corre o esta listo para correr.
     // Ya BLOCKED / KILLED / TERMINATED -> no hay nada que hacer.
-    if (p->state != RUNNING && p->state != READY) {
+    if (p->state != RUNNING) {
         return -1;
     }
 
