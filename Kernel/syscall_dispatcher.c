@@ -41,7 +41,9 @@ void* syscall_table[SYS_COUNT] = {
     &sys_ps,             // 19: SYS_PS
     &sys_yield,          // 20: SYS_YIELD
     &sys_create_process, // 21: SYS_CREATE_PROCESS
-    &sys_exit            // 22: SYS_EXIT
+    &sys_exit,           // 22: SYS_EXIT
+    &sys_check_ctrl_c,   // 23: SYS_CHECK_CTRL_C
+    &sys_loop_inc        // 24: SYS_LOOP_INC
 };
 
 // ========== SYSCALL HANDLERS ==========
@@ -88,23 +90,36 @@ uint64_t sys_read(uint64_t buffer, uint64_t max_len) {
     }
 
     while (i + 1 < max_len) {  // Reserve space for null terminator
+        // Check for Ctrl+C (interrupt current read)
+        if (get_and_clear_ctrl_c()) {
+            return (uint64_t)-1;  // Signal interrupt
+        }
+
+        // Check for Ctrl+D (EOF signal)
+        if (get_and_clear_ctrl_d()) {
+            buf[i] = '\0';
+            return i;  // Return what we have (may be 0 = EOF)
+        }
+
         // Wait for a key
         while (!hasNextKey()) {
+            // Re-check Ctrl+C/D while waiting
+            if (get_and_clear_ctrl_c()) {
+                return (uint64_t)-1;
+            }
+            if (get_and_clear_ctrl_d()) {
+                buf[i] = '\0';
+                return i;
+            }
             _hlt();  // Halt until next interrupt
         }
         
         int scancode = nextKey();
         
-        // Check for ESC key (scancode 0x01)
-        // if (scancode == 0x01) {
-        //     save_regs_on_esc();  // Save registers silently
-        //     continue;  // Don't add to buffer, just continue reading
-        // }
-        
         char c = scancode_to_char(scancode);
         
         if (c == 0) {
-            continue;  // Ignore non-character scancodes (Shift, release codes, etc.)
+            continue;  // Ignore non-character scancodes (Shift, Ctrl, release codes, etc.)
         }
         
         if (c == '\n') {
@@ -275,4 +290,12 @@ uint64_t sys_create_process(uint64_t name_ptr, uint64_t entry_ptr, uint64_t arg_
                                     (void *)arg_ptr,
                                     (int)priority,
                                     (int)foreground);
+}
+
+uint64_t sys_check_ctrl_c(void) {
+    return (uint64_t)get_and_clear_ctrl_c();
+}
+
+uint64_t sys_loop_inc(void) {
+    return (uint64_t)process_loop_inc();
 }

@@ -21,6 +21,8 @@ GLOBAL ps
 GLOBAL yield_cpu
 GLOBAL create_process
 GLOBAL exit_process
+GLOBAL check_ctrl_c
+GLOBAL loop_inc
 GLOBAL _hlt
 GLOBAL _cli
 GLOBAL _sti
@@ -50,7 +52,9 @@ SYS_PS equ 19
 SYS_YIELD equ 20
 SYS_CREATE_PROCESS equ 21
 SYS_EXIT equ 22
-SYS_COUNT equ 23
+SYS_CHECK_CTRL_C equ 23
+SYS_LOOP_INC equ 24
+SYS_COUNT equ 25
 
 ; Macro para syscall via int 0x80
 ; %1 = número de syscall
@@ -170,6 +174,14 @@ create_process:
 ; rdi = exit_code  (no retorna: el kernel termina el proceso)
 exit_process:
     SYSCALL SYS_EXIT
+
+; int64_t check_ctrl_c(void)
+check_ctrl_c:
+    SYSCALL SYS_CHECK_CTRL_C
+
+; int64_t loop_inc(void)
+loop_inc:
+    SYSCALL SYS_LOOP_INC
 
 _hlt:
 	sti

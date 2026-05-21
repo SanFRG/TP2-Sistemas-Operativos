@@ -30,7 +30,9 @@ enum {
     SYS_YIELD = 20,        // Yield CPU voluntarily
     SYS_CREATE_PROCESS = 21, // Create process
     SYS_EXIT = 22,           // Terminate current process
-    SYS_COUNT = 23
+    SYS_CHECK_CTRL_C = 23,   // Check and clear Ctrl+C flag
+    SYS_LOOP_INC = 24,        // Increment loop counter for current process
+    SYS_COUNT = 25
 };
 
 // Tabla de syscalls (array de punteros, accedida desde int 0x80)
@@ -60,5 +62,7 @@ uint64_t sys_ps(uint64_t buffer_ptr, uint64_t max_entries);
 uint64_t sys_yield(void);
 uint64_t sys_create_process(uint64_t name_ptr, uint64_t entry_ptr, uint64_t arg_ptr, uint64_t priority, uint64_t foreground);
 uint64_t sys_exit(uint64_t exit_code);
+uint64_t sys_check_ctrl_c(void);
+uint64_t sys_loop_inc(void);
 
 #endif

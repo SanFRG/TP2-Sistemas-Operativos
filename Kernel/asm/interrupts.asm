@@ -208,12 +208,14 @@ _irq04Handler:
 _irq05Handler:
 	irqHandlerMaster 5
 
+SYS_COUNT equ 25
+
 ; Syscall (int 0x80) - Llama directamente desde tabla de punteros
 _irq80Handler:
 	pushState
 
-	; Validar que el numero de syscall sea valido (rax < SYS_COUNT = 23)
-	cmp rax, 23
+	; Validar que el numero de syscall sea valido (rax < SYS_COUNT)
+	cmp rax, SYS_COUNT
 	jae .invalid_syscall
 
 	; Cargar direccion del handler desde la tabla

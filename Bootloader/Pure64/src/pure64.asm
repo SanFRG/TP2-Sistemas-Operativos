@@ -65,10 +65,6 @@ clearcs:
 	mov bx, 0x0000
 	int 0x10
 
-; Print message
-	mov si, msg_initializing
-	call print_string_16
-
 ; Check to make sure the CPU supports 64-bit mode... If not then bail out
 	mov eax, 0x80000000		; Extended-function 8000000h.
 	cpuid				; Is largest extended function
@@ -557,43 +553,15 @@ nextIOAPIC:
 	mov al, [VBEModeInfoBlock.BitsPerPixel]		; Color depth
 	stosb
 
-; Initialization is now complete... write a message to the screen
-	mov rsi, msg_done
-	call os_print_string
-
 ; Debug
 	mov al, '4'
 	mov [0x000B809E], al
-
-; Print info on CPU and MEM
-	mov ax, 0x0004
-	call os_move_cursor
-	mov rsi, msg_CPU
-	call os_print_string
-	mov rsi, speedtempstring
-	call os_print_string
-	mov rsi, msg_mhz
-	call os_print_string
-	mov rsi, cpu_amount_string
-	call os_print_string
-	mov rsi, msg_MEM
-	call os_print_string
-	mov rsi, memtempstring
-	call os_print_string
-	mov rsi, msg_mb
-	call os_print_string
 
 ; Move the trailing binary to its final location
 	mov rsi, 0x60000+6144		; Memory offset to end of pure64.sys
 	mov rdi, 0x100000		; Destination address at the 1MiB mark
 	mov rcx, 0x8000			; For up to 256KiB kernel (262144 / 8)
 	rep movsq			; Copy 8 bytes at a time
-
-; Print a message that the kernel is being started
-	mov ax, 0x0006
-	call os_move_cursor
-	mov rsi, msg_startingkernel
-	call os_print_string
 
 ; Debug
 	mov rdi, 0x000B8092		; Clear the debug messages

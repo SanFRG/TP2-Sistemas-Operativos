@@ -72,6 +72,20 @@ void printHex(uint64_t num) {
     print(buffer);
 }
 
+// Convert string to integer
+int atoi(const char *str) {
+    int result = 0;
+    int sign = 1;
+    if (*str == '-') {
+        sign = -1;
+        str++;
+    }
+    while (*str >= '0' && *str <= '9') {
+        result = result * 10 + (*str++ - '0');
+    }
+    return sign * result;
+}
+
 // Convert integer to string
 void itoa(int num, char* buffer) {
     if (num == 0) {

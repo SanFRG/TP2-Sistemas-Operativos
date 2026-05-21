@@ -48,6 +48,7 @@ static void init_process_common(PCB *p, const char *name, int foreground, int pr
     p->fd[2] = 2;
     p->exit_code = 0;
     p->waiting_for_pid = 0;
+    p->loop_counter = 0;
     p->stack_base = NULL;
     p->stack_pointer = NULL;
     p->base_pointer = NULL;
@@ -123,6 +124,7 @@ static void clear_pcb_slot(PCB *p) {
     p->fd[2] = 0;
     p->exit_code = 0;
     p->waiting_for_pid = 0;
+    p->loop_counter = 0;
     p->base_pointer = NULL;
     p->next = NULL;
 }
@@ -165,7 +167,7 @@ int process_block(int pid) {
     }
     // Solo se puede bloquear algo que corre o esta listo para correr.
     // Ya BLOCKED / KILLED / TERMINATED -> no hay nada que hacer.
-    if (p->state != RUNNING) {
+    if (p->state != READY && p->state != RUNNING) {
         return -1;
     }
 
@@ -248,6 +250,7 @@ int process_list(process_info *buffer, uint64_t max_entries) {
         buffer[count].priority = p->priority;
         buffer[count].foreground = p->foreground;
         buffer[count].state = (int)p->state;
+        buffer[count].loop_counter = p->loop_counter;
         init_name(buffer[count].name, p->name);
         count++;
     }
@@ -319,6 +322,13 @@ int process_create(const char *name, void (*function)(void *), void *arg, int pr
     // lo interrumpe antes, lo ve BLOCKED y no lo elige a medio armar.
     p->state = READY;
     return p->pid;
+}
+
+int process_loop_inc(void) {
+    PCB *me = get_process_by_pid(current_pid);
+    if (me == NULL) return -1;
+    me->loop_counter++;
+    return 0;
 }
 
 /* ================= Scheduler (Round Robin con prioridades) =================

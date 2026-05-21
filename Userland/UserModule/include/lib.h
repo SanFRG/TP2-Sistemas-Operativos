@@ -27,7 +27,9 @@ enum {
     SYS_YIELD = 20,
     SYS_CREATE_PROCESS = 21,
     SYS_EXIT = 22,
-    SYS_COUNT = 23
+    SYS_CHECK_CTRL_C = 23,
+    SYS_LOOP_INC = 24,
+    SYS_COUNT = 25
 };
 
 // Register snapshot structure (must match kernel ExceptionFrame)
@@ -52,6 +54,7 @@ typedef struct {
     int priority;
     int foreground;
     int state;
+    uint64_t loop_counter;
     char name[32];
 } process_info;
 
@@ -79,6 +82,8 @@ extern int64_t ps(process_info *buffer, uint64_t max_entries);
 extern int64_t yield_cpu(void);
 extern int64_t create_process(char *name, void (*entry_point)(void *), void *arg, uint64_t priority, uint64_t foreground);
 extern void exit_process(int exit_code);  // Termina el proceso actual (no retorna)
+extern int64_t check_ctrl_c(void);  // Returns 1 if Ctrl+C was pressed, 0 otherwise
+extern int64_t loop_inc(void);      // Increment process loop counter
 
 extern void trigger_invalid_opcode(void);  // Trigger Invalid Opcode exception (for testing)
 
@@ -86,6 +91,7 @@ extern void trigger_invalid_opcode(void);  // Trigger Invalid Opcode exception (
 int strlen(const char* str);
 int strcmp(const char* s1, const char* s2);
 int strcasecmp(const char* s1, const char* s2);  // Case-insensitive compare
+int atoi(const char* str);
 
 // Print helpers
 void print(const char* str);
