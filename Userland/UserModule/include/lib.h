@@ -29,7 +29,11 @@ enum {
     SYS_EXIT = 22,
     SYS_CHECK_CTRL_C = 23,
     SYS_LOOP_INC = 24,
-    SYS_COUNT = 25
+    SYS_SEM_OPEN = 25,
+    SYS_SEM_CLOSE = 26,
+    SYS_SEM_WAIT = 27,
+    SYS_SEM_POST = 28,
+    SYS_COUNT = 29
 };
 
 // Register snapshot structure (must match kernel ExceptionFrame)
@@ -84,6 +88,10 @@ extern int64_t create_process(char *name, void (*entry_point)(void *), void *arg
 extern void exit_process(int exit_code);  // Termina el proceso actual (no retorna)
 extern int64_t check_ctrl_c(void);  // Returns 1 if Ctrl+C was pressed, 0 otherwise
 extern int64_t loop_inc(void);      // Increment process loop counter
+extern int64_t sem_open(const char *name, uint64_t initial_value);
+extern int64_t sem_close(const char *name);
+extern int64_t sem_wait(const char *name);
+extern int64_t sem_post(const char *name);
 
 extern void trigger_invalid_opcode(void);  // Trigger Invalid Opcode exception (for testing)
 

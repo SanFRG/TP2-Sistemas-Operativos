@@ -47,6 +47,7 @@ int pcb_set_current(const char *name, int foreground, int priority, int parent_p
 int process_get_current_pid(void);
 int process_kill(int pid);
 int process_block(int pid);
+int process_block_current(void);
 int process_unblock(int pid);
 int process_set_priority(int pid, int new_priority);
 int process_wait(int pid);

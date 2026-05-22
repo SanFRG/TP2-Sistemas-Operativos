@@ -23,6 +23,10 @@ GLOBAL create_process
 GLOBAL exit_process
 GLOBAL check_ctrl_c
 GLOBAL loop_inc
+GLOBAL sem_open
+GLOBAL sem_close
+GLOBAL sem_wait
+GLOBAL sem_post
 GLOBAL _hlt
 GLOBAL _cli
 GLOBAL _sti
@@ -54,7 +58,11 @@ SYS_CREATE_PROCESS equ 21
 SYS_EXIT equ 22
 SYS_CHECK_CTRL_C equ 23
 SYS_LOOP_INC equ 24
-SYS_COUNT equ 25
+SYS_SEM_OPEN equ 25
+SYS_SEM_CLOSE equ 26
+SYS_SEM_WAIT equ 27
+SYS_SEM_POST equ 28
+SYS_COUNT equ 29
 
 ; Macro para syscall via int 0x80
 ; %1 = número de syscall
@@ -182,6 +190,26 @@ check_ctrl_c:
 ; int64_t loop_inc(void)
 loop_inc:
     SYSCALL SYS_LOOP_INC
+
+; int64_t sem_open(const char *name, uint64_t initial_value)
+; rdi = name, rsi = initial value
+sem_open:
+    SYSCALL SYS_SEM_OPEN
+
+; int64_t sem_close(const char *name)
+; rdi = name
+sem_close:
+    SYSCALL SYS_SEM_CLOSE
+
+; int64_t sem_wait(const char *name)
+; rdi = name
+sem_wait:
+    SYSCALL SYS_SEM_WAIT
+
+; int64_t sem_post(const char *name)
+; rdi = name
+sem_post:
+    SYSCALL SYS_SEM_POST
 
 _hlt:
 	sti

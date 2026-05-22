@@ -208,7 +208,7 @@ _irq04Handler:
 _irq05Handler:
 	irqHandlerMaster 5
 
-SYS_COUNT equ 25
+SYS_COUNT equ 29
 
 ; Syscall (int 0x80) - Llama directamente desde tabla de punteros
 _irq80Handler:

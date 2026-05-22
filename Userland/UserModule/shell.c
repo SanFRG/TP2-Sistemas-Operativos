@@ -2,6 +2,7 @@
 #include <lib.h>
 #include <test_exceptions.h>
 #include <sound.h>
+#include <test_sync_userland.h>
 
 #define COLOR_BLACK   0x00000000
 #define BUFFER_SIZE 256
@@ -73,6 +74,7 @@ static Command commands[] = {
     {"kill", cmd_kill},
     {"nice", cmd_nice},
     {"block", cmd_block},
+    {"test_sync", cmd_test_sync},
     {NULL, NULL}
 };
 
@@ -216,6 +218,7 @@ void cmd_help(int argc, char *argv[]) {
     println("  kill <pid>        - Mata un proceso");
     println("  nice <pid> <prio> - Cambia prioridad (0-2)");
     println("  block <pid>       - Bloquea/desbloquea un proceso");
+    println("  test_sync <n> <s> - Test de sincronizacion (s=0/1)");
     println("  clear             - Limpia la pantalla");
     println("  exit              - Sale de la shell");
     println("");

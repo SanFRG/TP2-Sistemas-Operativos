@@ -11,6 +11,7 @@
 #include <textConsole.h>
 #include <memoryManager.h>
 #include <process.h>
+#include <semaphore.h>
 
 // Variables externas desde interrupts.asm
 extern RegisterFrame user_snapshot;
@@ -43,7 +44,11 @@ void* syscall_table[SYS_COUNT] = {
     &sys_create_process, // 21: SYS_CREATE_PROCESS
     &sys_exit,           // 22: SYS_EXIT
     &sys_check_ctrl_c,   // 23: SYS_CHECK_CTRL_C
-    &sys_loop_inc        // 24: SYS_LOOP_INC
+    &sys_loop_inc,       // 24: SYS_LOOP_INC
+    &sys_sem_open,       // 25: SYS_SEM_OPEN
+    &sys_sem_close,      // 26: SYS_SEM_CLOSE
+    &sys_sem_wait,       // 27: SYS_SEM_WAIT
+    &sys_sem_post        // 28: SYS_SEM_POST
 };
 
 // ========== SYSCALL HANDLERS ==========
@@ -298,4 +303,32 @@ uint64_t sys_check_ctrl_c(void) {
 
 uint64_t sys_loop_inc(void) {
     return (uint64_t)process_loop_inc();
+}
+
+uint64_t sys_sem_open(uint64_t name_ptr, uint64_t initial_value) {
+    if (name_ptr == 0) {
+        return (uint64_t)-1;
+    }
+    return (uint64_t)sem_open((const char *)name_ptr, initial_value);
+}
+
+uint64_t sys_sem_close(uint64_t name_ptr) {
+    if (name_ptr == 0) {
+        return (uint64_t)-1;
+    }
+    return (uint64_t)sem_close((const char *)name_ptr);
+}
+
+uint64_t sys_sem_wait(uint64_t name_ptr) {
+    if (name_ptr == 0) {
+        return (uint64_t)-1;
+    }
+    return (uint64_t)sem_wait((const char *)name_ptr);
+}
+
+uint64_t sys_sem_post(uint64_t name_ptr) {
+    if (name_ptr == 0) {
+        return (uint64_t)-1;
+    }
+    return (uint64_t)sem_post((const char *)name_ptr);
 }

@@ -2,6 +2,7 @@
 #include "memoryManager.h"
 #include "lib.h"
 #include "interrupts.h"
+#include "semaphore.h"
 #include <stdint.h>
 #include <stddef.h>
 
@@ -182,6 +183,7 @@ int process_kill(int pid) {
 
     p->state = KILLED;
     p->exit_code = -1;
+    sem_remove_waiter(pid);
     wake_parent_if_waiting(p);
     return 0;
 }
@@ -202,6 +204,18 @@ int process_block(int pid) {
     if (pid == current_pid) {
         _yield();   // si me bloquee a mi mismo, cedo el CPU ya mismo
     }
+    return 0;
+}
+
+int process_block_current(void) {
+    PCB *p = get_process_by_pid(current_pid);
+    if (p == NULL || current_pid == idle_pid) {
+        return -1;
+    }
+    if (p->state != READY && p->state != RUNNING) {
+        return -1;
+    }
+    p->state = BLOCKED;
     return 0;
 }
 

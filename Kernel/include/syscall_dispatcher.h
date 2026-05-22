@@ -32,7 +32,11 @@ enum {
     SYS_EXIT = 22,           // Terminate current process
     SYS_CHECK_CTRL_C = 23,   // Check and clear Ctrl+C flag
     SYS_LOOP_INC = 24,        // Increment loop counter for current process
-    SYS_COUNT = 25
+    SYS_SEM_OPEN = 25,       // Open/create named semaphore
+    SYS_SEM_CLOSE = 26,      // Close named semaphore
+    SYS_SEM_WAIT = 27,       // Wait/down on semaphore
+    SYS_SEM_POST = 28,       // Post/up semaphore
+    SYS_COUNT = 29
 };
 
 // Tabla de syscalls (array de punteros, accedida desde int 0x80)
@@ -64,5 +68,9 @@ uint64_t sys_create_process(uint64_t name_ptr, uint64_t entry_ptr, uint64_t arg_
 uint64_t sys_exit(uint64_t exit_code);
 uint64_t sys_check_ctrl_c(void);
 uint64_t sys_loop_inc(void);
+uint64_t sys_sem_open(uint64_t name_ptr, uint64_t initial_value);
+uint64_t sys_sem_close(uint64_t name_ptr);
+uint64_t sys_sem_wait(uint64_t name_ptr);
+uint64_t sys_sem_post(uint64_t name_ptr);
 
 #endif
