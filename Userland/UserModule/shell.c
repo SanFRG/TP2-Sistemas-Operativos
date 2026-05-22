@@ -328,7 +328,26 @@ void cmd_kill(int argc, char *argv[]) {
         return;
     }
     int pid = atoi(argv[1]);
+    int my_pid = (int)getpid();
+    int should_wait = 0;
+    process_info entries[MAX_PS_ENTRIES];
+    int count = ps(entries, MAX_PS_ENTRIES);
+
+    if (count > 0) {
+        for (int i = 0; i < count; i++) {
+            if (entries[i].pid == pid && entries[i].parent_pid == my_pid) {
+                should_wait = 1;
+                break;
+            }
+        }
+    }
+
     if (kill_process(pid) == 0) {
+        if (should_wait) {
+            // Recolectar hijo matado para liberar stack y slot del PCB.
+            // El exit_code puede ser -1 (kill), por eso no usamos el retorno.
+            waitpid(pid);
+        }
         print("Proceso "); printInt(pid); println(" terminado.");
     } else {
         print("Error: no se pudo matar el proceso "); printInt(pid); println(".");

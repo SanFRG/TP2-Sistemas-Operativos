@@ -17,6 +17,7 @@ static int idle_pid = -1;
 
 static void clear_pcb_slot(PCB *p);
 static void idle_process(void *arg);
+static void clean_orphan(void);
 
 static int generate_pid(void) {
     return next_pid++;
@@ -83,6 +84,31 @@ static void wake_parent_if_waiting(PCB *child) {
         parent->waiting_for_pid == child->pid) {
         parent->waiting_for_pid = 0;
         parent->state = READY;
+    }
+}
+
+// Recolecta procesos muertos cuyo padre ya no existe o tambien esta muerto.
+// Importante: nunca toca el proceso current, porque su stack puede estar en uso.
+static void clean_orphan(void) {
+    for (int i = 0; i < MAX_PROCESSES; i++) {
+        PCB *p = &process_table[i];
+        PCB *parent;
+
+        if (p->pid == 0 || p->pid == idle_pid || p->pid == current_pid) {
+            continue;
+        }
+        if (p->state != KILLED && p->state != TERMINATED) {
+            continue;
+        }
+
+        parent = get_process_by_pid(p->parent_pid);
+        if (p->parent_pid <= 0 || parent == NULL ||
+            parent->state == KILLED || parent->state == TERMINATED) {
+            if (p->stack_base != NULL) {
+                mm_free(p->stack_base);
+            }
+            clear_pcb_slot(p);
+        }
     }
 }
 
@@ -373,6 +399,9 @@ static int pick_next_ready(void) {
 // guardado en el stack) y devuelve el rsp del proximo proceso a correr.
 void *scheduler_switch(void *current_rsp) {
     PCB *current = get_process_by_pid(current_pid);
+
+    // Mantenimiento liviano: evita acumulacion de zombies huerfanos.
+    clean_orphan();
 
     // 1. Guardar siempre el contexto del proceso actual.
     if (current != NULL) {
