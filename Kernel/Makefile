@@ -1,10 +1,11 @@
 include Makefile.inc
 
 KERNEL=kernel.bin
-MEMORY_MANAGER?=memoryManager.c
+MEMORY_MANAGER?=mm/memoryManager.c
 MM_NAME=$(basename $(notdir $(MEMORY_MANAGER)))
 MM_STAMP=.mm_$(MM_NAME)
-COMMON_SOURCES=$(filter-out memoryManager.c memoryManagerBuddy.c,$(wildcard *.c))
+ALL_C_SOURCES=$(sort $(shell find . -type f -name '*.c' | sed 's#^\./##'))
+COMMON_SOURCES=$(filter-out mm/memoryManager.c mm/memoryManagerBuddy.c,$(ALL_C_SOURCES))
 SOURCES=$(COMMON_SOURCES) $(MEMORY_MANAGER)
 SOURCES_ASM=$(wildcard asm/*.asm)
 OBJECTS=$(SOURCES:.c=.o)
@@ -17,7 +18,7 @@ STATICLIBS=
 all: $(KERNEL)
 
 buddy:
-	$(MAKE) all MEMORY_MANAGER=memoryManagerBuddy.c
+	$(MAKE) all MEMORY_MANAGER=mm/memoryManagerBuddy.c
 
 $(MM_STAMP):
 	rm -f .mm_*
@@ -36,6 +37,7 @@ $(LOADEROBJECT):
 	$(ASM) $(ASMFLAGS) $(LOADERSRC) -o $(LOADEROBJECT)
 
 clean:
-	rm -rf asm/*.o *.o *.bin .mm_*
+	find . -name '*.o' -delete
+	rm -f $(KERNEL) .mm_*
 
 .PHONY: all buddy clean

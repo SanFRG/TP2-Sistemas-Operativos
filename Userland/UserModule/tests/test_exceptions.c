@@ -1,5 +1,5 @@
-#include "include/test_exceptions.h"
-#include "include/lib.h"
+#include <test_exceptions.h>
+#include <lib.h>
 #include <stdint.h>
 
 void run_exception_test_zero_division(void) {

@@ -46,7 +46,7 @@ extern void* syscall_table[];
 uint64_t sys_read(uint64_t buffer, uint64_t max_len);
 uint64_t sys_write(uint64_t fd, uint64_t str_ptr, uint64_t length);
 uint64_t sys_clear(uint64_t color);
-uint64_t sys_time();
+uint64_t sys_time(void);
 uint64_t sys_ticks(void);
 uint64_t sys_get_key(void);
 uint64_t sys_sleep(uint64_t ticks);

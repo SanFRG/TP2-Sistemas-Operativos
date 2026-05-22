@@ -4,7 +4,6 @@
 #include <keyboard.h>
 #include <time.h>
 #include <lib.h>
-#include <time.h>
 #include <interrupts.h>
 #include <reg_printer.h>
 #include <exceptions.h>
@@ -64,7 +63,7 @@ uint64_t sys_ticks(void) {
 }
 
 // SYS_TIME: Get current time/date based on ticks (NOT RTC)--> empaqueta el tiempo para devolverla a userland   
-uint64_t sys_time() {
+uint64_t sys_time(void) {
     Time t = getTime();
     // empaqueta [YY|MM|DD|hh|mm|ss]
     return ((uint64_t)t.year   << 40) |

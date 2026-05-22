@@ -129,6 +129,8 @@ Los comandos no distinguen mayusculas de minusculas.
 | `kill` | `<pid>` | Mata un proceso por PID. |
 | `nice` | `<pid> <prio>` | Cambia prioridad de un proceso. Prioridad valida: `0` a `2`. |
 | `block` | `<pid>` | Bloquea un proceso READY/RUNNING o desbloquea uno BLOCKED. |
+| `test_sync` | `<iteraciones> <use_sem: 0|1>` | Ejecuta una prueba de sincronizacion con o sin semaforo. |
+| `exit` | ninguno | Cierra la shell y vuelve al kernel. |
 
 ### Tests disponibles desde la shell
 
@@ -136,10 +138,11 @@ Los comandos no distinguen mayusculas de minusculas.
 | --- | --- | --- |
 | `memtest` | ninguno | Test manual corto de reserva y liberacion. |
 | `test_mm` | ninguno | Test de stress acotado del memory manager. |
+| `test_sync` | `<iteraciones> <use_sem: 0|1>` | Crea procesos que modifican una variable compartida. Con `use_sem=1` sincroniza con semaforos. |
 | `cerodiv` | ninguno | Verifica manejo de excepcion de division por cero. |
 | `invalido` | ninguno | Verifica manejo de excepcion de opcode invalido. |
 
-Los fuentes de tests de catedra estan en `MemoryTest/`, pero no estan integrados como comandos de userland. Ademas, sus wrappers de syscalls (`MemoryTest/syscall.c`) son stubs que devuelven `0`, por lo que no ejercitan el kernel actual.
+Los fuentes de tests de catedra estan en `MemoryTest/`. El test de sincronizacion integrado en la shell es la version de userland en `Userland/UserModule/test_sync_userland.c`; los wrappers de `MemoryTest/syscall.c` siguen siendo stubs y no ejercitan el kernel actual.
 
 ## Caracteres especiales
 
@@ -171,7 +174,7 @@ El caracter requerido para pipes es:
 |
 ```
 
-Estado actual: no esta implementado el parser de pipes ni la infraestructura de pipes/file descriptors para conectar procesos. Comandos como `cat`, `wc` y `filter` tampoco estan implementados.
+Estado actual: la shell detecta `|` como caracter reservado, pero todavia no implementa pipelines. La infraestructura de pipes/file descriptors para conectar procesos tampoco esta implementada. Comandos como `cat`, `wc` y `filter` tampoco estan disponibles.
 
 ## Atajos de teclado
 
@@ -236,6 +239,15 @@ ps
 
 El primer `block` pasa el proceso a BLOCKED. El segundo lo desbloquea y vuelve a READY.
 
+### Semaforos y sincronizacion
+
+```txt
+test_sync 1000 0
+test_sync 1000 1
+```
+
+El primer comando ejecuta la prueba sin semaforo y puede mostrar condicion de carrera. El segundo usa un semaforo nombrado para proteger la variable compartida; el valor final esperado es consistente.
+
 ### Kill y recoleccion
 
 ```txt
@@ -245,7 +257,7 @@ kill <pid>
 ps
 ```
 
-Mata un proceso. Los procesos hijos terminados se liberan completamente cuando su padre hace `waitpid`; desde la shell esto ocurre para el proceso foreground.
+Mata un proceso. Si el proceso matado es hijo de la shell, el comando hace `waitpid` para liberar su stack y su slot de PCB.
 
 ### Excepciones
 
@@ -269,10 +281,13 @@ En el prompt, presionar `Ctrl+D`. La shell interpreta EOF y vuelve a mostrar el 
 - Context switch y scheduler Round Robin con prioridades por quantum.
 - Comandos `ps`, `kill`, `nice`, `block` y `loop`.
 - `waitpid` bloqueante para hijos: el padre queda BLOCKED hasta que el hijo termina.
+- Semaforos nombrados con `sem_open`, `sem_close`, `sem_wait` y `sem_post`.
+- Bloqueo de procesos en `sem_wait` sin busy waiting cuando no hay recursos disponibles.
 - Proceso idle para cuando no hay procesos READY.
 - `Ctrl+C` para interrumpir lectura o matar foreground.
 - `Ctrl+D` como EOF de lectura.
 - Test `test_mm` en userland.
+- Test `test_sync` en userland.
 - Tests unitarios de host para ambos memory managers.
 
 ## Requerimientos faltantes o parcialmente implementados
@@ -282,47 +297,22 @@ En el prompt, presionar `Ctrl+D`. La shell interpreta EOF y vuelve a mostrar el 
 - `|`: no implementado.
 - Pipes bloqueantes: no implementados.
 - Redireccion de `read/write` por file descriptors hacia pipes: no implementada. `write` ignora el `fd` y escribe en pantalla.
-- Semaforos: no implementados.
-- `test_sync`: el fuente esta en `MemoryTest/`, pero no esta integrado como comando y depende de semaforos no implementados.
 - `test_proc`: el fuente esta en `MemoryTest/`, pero no esta integrado como comando y sus wrappers de syscall son stubs.
 - `test_prio`: el fuente esta en `MemoryTest/`, pero no esta integrado como comando y sus wrappers de syscall son stubs.
 - Comandos `cat`, `wc`, `filter`: no implementados.
 - Comando `mvar`: no implementado.
-- Comando `exit`: aparece en la ayuda, pero no esta registrado en la tabla de comandos y no cierra la shell.
 - Pipes encadenados tipo `p1 | p2 | p3`: no implementados.
 
 ## Limitaciones
 
-- El sistema no tiene semaforos ni primitivas de sincronizacion de userland.
 - No hay IPC por pipes.
+- `PCB.fd[3]` existe como base para stdin/stdout/stderr, pero `read/write` todavia no redirigen por descriptor.
 - El scheduler usa Round Robin circular; la prioridad modifica el quantum (`prio + 1`), no el orden absoluto de seleccion.
 - `kill` no permite matar el proceso actual ni el proceso idle.
 - Los procesos en estado `KILLED` no se listan en `ps`.
-- Un proceso `TERMINATED` o `KILLED` cuyo padre nunca llama a `waitpid` puede quedar ocupando un slot. Si un padre muere antes que sus hijos, no hay reasignacion a un proceso `init` ni recoleccion automatica completa.
+- Un proceso `TERMINATED` o `KILLED` cuyo padre vivo nunca llama a `waitpid` puede quedar ocupando un slot. Si el padre muere, el scheduler intenta recolectar huerfanos terminados.
 - `Ctrl+D` no termina la shell; solo devuelve EOF para la lectura actual.
 - `regs` depende de que exista un snapshot de registros previo; si no lo hay, informa error.
 - La entrada de la shell soporta tokenizacion simple por espacios. No hay comillas, escaping ni multiples comandos por linea.
 - La compilacion por `compile.sh` asume un contenedor Docker existente llamado `TPE`.
 - `run.sh` asume backend de audio ALSA para el PC speaker.
-
-
-
-kill ya está bastante implementado: hay syscall, comando kill <pid>, process_kill() marca el proceso como KILLED, y el scheduler deja de elegirlo.
-
-  Lo que falta para que quede “bien cerrado” es principalmente la recolección:
-
-  - Para procesos en background, cmd_kill() mata el proceso pero no llama a waitpid(pid).
-  - Entonces el proceso queda en la tabla como KILLED, no aparece en ps porque process_list() lo saltea, pero el slot y el stack pueden quedar ocupados.
-  - Para foreground sí está mejor: la shell hace kill_process(fg_pid) y después waitpid(fg_pid).
-
-  El arreglo mínimo sería que cmd_kill() haga:
-
-  if (kill_process(pid) == 0) {
-      waitpid(pid);
-      ...
-  }
-
-  Eso funcionaría si el proceso matado es hijo de la shell, que es el caso normal para procesos creados desde la shell como loop -b.
-
-  Para que kill quede más completo a nivel kernel también faltaría definir qué pasa con hijos del proceso matado: hoy no se reasignan a init ni se recolectan automáticamente. Y por diseño actual
-  no se puede matar el proceso actual ni el proceso idle, eso está explícito en process_kill().

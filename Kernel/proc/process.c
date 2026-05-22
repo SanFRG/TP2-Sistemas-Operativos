@@ -19,6 +19,7 @@ static int idle_pid = -1;
 static void clear_pcb_slot(PCB *p);
 static void idle_process(void *arg);
 static void clean_orphan(void);
+static void init_standard_fds(PCB *p);
 
 static int generate_pid(void) {
     return next_pid++;
@@ -45,9 +46,7 @@ static void init_process_common(PCB *p, const char *name, int foreground, int pr
     p->foreground = foreground;
     p->parent_pid = parent_pid;
     p->children_count = 0;
-    p->fd[0] = 0;
-    p->fd[1] = 1;
-    p->fd[2] = 2;
+    init_standard_fds(p);
     p->exit_code = 0;
     p->waiting_for_pid = 0;
     p->loop_counter = 0;
@@ -55,6 +54,12 @@ static void init_process_common(PCB *p, const char *name, int foreground, int pr
     p->stack_pointer = NULL;
     p->base_pointer = NULL;
     p->next = NULL;
+}
+
+static void init_standard_fds(PCB *p) {
+    p->fd[0] = 0;  // stdin
+    p->fd[1] = 1;  // stdout
+    p->fd[2] = 2;  // stderr
 }
 
 static PCB *get_process_by_pid(int pid) {

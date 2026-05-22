@@ -1,7 +1,7 @@
 include ../Makefile.inc
 
 MODULE=0000-userModule.bin
-SOURCES=$(wildcard [^_]*.c)
+SOURCES=$(sort $(shell find . -type f -name '*.c' ! -name '_*.c' | sed 's#^\./##'))
 SOURCES_ASM=$(wildcard asm/*.asm)
 OBJECTS_ASM=$(SOURCES_ASM:.asm=.o)
 
@@ -14,6 +14,6 @@ $(MODULE): $(SOURCES) $(OBJECTS_ASM)
 	$(ASM) $(ASMFLAGS) $< -o $@
 
 clean:
-	rm -rf asm/*.o *.o
+	find . -name '*.o' -delete
 
 .PHONY: all clean print

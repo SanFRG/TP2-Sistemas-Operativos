@@ -24,7 +24,7 @@ typedef struct PCB {
     int foreground;
     int parent_pid;
     int children_count;
-    int fd[3];
+    int fd[3];             // 0=stdin, 1=stdout, 2=stderr; base para pipes
     int exit_code;
     uint64_t loop_counter;
     int waiting_for_pid;   // PID del hijo que este proceso espera con wait (0 = ninguno)
@@ -47,7 +47,7 @@ int pcb_set_current(const char *name, int foreground, int priority, int parent_p
 int process_get_current_pid(void);
 int process_kill(int pid);
 int process_block(int pid);
-int process_block_current(void);
+int process_block_current(void);  // Usado por semaforos para dormir al proceso actual
 int process_unblock(int pid);
 int process_set_priority(int pid, int new_priority);
 int process_wait(int pid);
