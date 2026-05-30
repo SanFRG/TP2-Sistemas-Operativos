@@ -88,6 +88,11 @@ void cmd_test_sync(int argc, char *argv[]) {
 
         if (pids[dec_idx] < 0 || pids[inc_idx] < 0) {
             println("test_sync: error creando procesos.");
+            for (int j = 0; j < (i * 2) + (pids[dec_idx] >= 0 ? 1 : 0) + (pids[inc_idx] >= 0 ? 1 : 0); j++) {
+                if (pids[j] >= 0) {
+                    waitpid(pids[j]);
+                }
+            }
             return;
         }
     }

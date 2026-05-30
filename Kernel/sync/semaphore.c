@@ -8,11 +8,11 @@
 #define SEM_NAME_LEN 32
 #define MAX_WAITERS MAX_PROCESSES
 
-typedef struct {
-    uint8_t in_use;
+typedef struct { 
+    uint8_t in_use; //indica si el semaforo esta en uso o no, para saber si se puede usar ese slot o no
     char name[SEM_NAME_LEN];
-    int64_t value;
-    uint64_t ref_count;
+    int64_t value; //valor que cuenta lo de post y wait (negativos, cero o uno)
+    uint64_t ref_count; //cuenta cuantas veces se ha abierto el semaforo, para saber cuando eliminarlo
     int waiters[MAX_WAITERS];
     int wait_head;
     int wait_tail;
@@ -248,6 +248,11 @@ int sem_post(const char *name) {
         _sti();
         rc = process_unblock(pid);
         if (rc == 0) {
+            _cli();
+            if (sem_table[idx].in_use && sem_table[idx].ref_count == 0 && sem_table[idx].wait_count == 0) {
+                memset(&sem_table[idx], 0, sizeof(sem_table[idx]));
+            }
+            _sti();
             return 0;
         }
         _cli();
@@ -271,7 +276,11 @@ void sem_remove_waiter(int pid) {
     _cli();
     for (int i = 0; i < MAX_SEMAPHORES; i++) {
         if (sem_table[i].in_use) {
-            remove_waiter_from_sem(&sem_table[i], pid);
+            if (remove_waiter_from_sem(&sem_table[i], pid) > 0) {
+                if (sem_table[i].ref_count == 0 && sem_table[i].wait_count == 0) {
+                    memset(&sem_table[i], 0, sizeof(sem_table[i]));
+                }
+            }
         }
     }
     _sti();

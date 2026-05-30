@@ -246,7 +246,7 @@ test_sync 1000 0
 test_sync 1000 1
 ```
 
-El primer comando ejecuta la prueba sin semaforo y puede mostrar condicion de carrera. El segundo usa un semaforo nombrado para proteger la variable compartida; el valor final esperado es consistente.
+El primer comando ejecuta la prueba sin semaforo y puede mostrar condicion de carrera. El segundo usa un semaforo nombrado para proteger la variable compartida; el valor final esperado es 0 (los incrementos y decrementos se cancelan).
 
 ### Kill y recoleccion
 
