@@ -409,3 +409,19 @@ Sacá el #include <textConsole.h> si no lo usás en otro lado.
 
 
 tener en cuenta: Procesos zombie: un proceso TERMINATED cuyo padre nunca llama a wait queda en la tabla ocupando un slot para siempre. Y si el padre muere antes que el hijo, nadie va a recolectar a ese hijo. El roadmap (stage 3) menciona esto como algo a definir — una solución sería que, al morir un proceso, sus hijos se reasignen a un proceso "init" que los recolecte, o reaparlos al salir. Por ahora queda como limitación documentada.
+
+
+
+La consigna exige: "Pasar los tests test_mm, test_proc y test_sync como procesos de usuario (no built-ins) en foreground y background".
+
+test_proc no existe como comando — no está en la tabla de shell_commands.c:23-45. El fuente está en MemoryTest/test_processes.c pero no está integrado (el propio Readme.md:327 lo admite).
+mvar no implementado — aplicación obligatoria, no hay cmd_mvar (Readme.md:330).
+& (background) se parsea pero se ignora — shell_parser.c:30 setea command->background = 1, pero shell_execute_command nunca lee ese flag. ⇒ ningún test se puede correr en background, que es obligatorio.
+test_mm corre como built-in inline, no como proceso — cmd_test_mm ejecuta todo dentro del proceso shell. Y ignora el parámetro de memoria máxima (hardcodea 128 KB y 40 iteraciones) en vez de tomarlo como pide la consigna.
+🟠 Otros incumplimientos de consigna
+ps no muestra stack pointer ni base pointer — la consigna los pide explícitamente. process_info (lib.h:68-76) no tiene esos campos y cmd_ps no los imprime.
+loop en background no imprime nada — loop_process_entry solo imprime si fg. La consigna dice que loop debe imprimir su ID + saludo periódicamente (y se lo suele correr en background).
+🐛 Bugs de código
+loop nunca imprime el contador — shell_process_cmds.c:18-22: hace print(" count: ") e inmediatamente println(" corriendo..."), el valor del count nunca se imprime.
+Punto flotante en build -mno-sse — shell_mem_cmds.c:28 usa double (mm_uniform), pero ambos Makefile.inc compilan con -mno-sse -mno-sse2. Compila usando x87, pero el context switch no guarda el estado de FPU/x87, así que es frágil ante preemption. Conviene rehacerlo con aritmética entera (% (max+1)).
+loop & queda en foreground — el parser consume el & y lo descarta, así que loop & corre en foreground (al revés de lo esperado). El background de loop solo funciona con su flag propio loop -b.

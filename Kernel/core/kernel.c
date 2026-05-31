@@ -8,6 +8,7 @@
 #include <memoryManager.h>
 #include <process.h>
 #include <semaphore.h>
+#include <pipe.h>
 
 extern uint8_t text;
 extern uint8_t rodata;
@@ -77,6 +78,7 @@ int main(){
 
 	process_system_init();
 	sem_system_init();
+	pipe_system_init();
 	pcb_set_current("shell", 1, 1, 0);
 
 	// Capturar RSP antes del call para poder resetearlo en recuperacion de excepciones.

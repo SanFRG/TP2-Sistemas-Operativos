@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "interrupts.h"
 #include "semaphore.h"
+#include "pipe.h"
 #include <stdint.h>
 #include <stddef.h>
 
@@ -177,6 +178,20 @@ int process_get_current_pid(void) {
     return current_pid;
 }
 
+int process_get_current_fd(int fd_index) {
+    if (fd_index < 0 || fd_index >= 3) return -1;
+    PCB *p = get_process_by_pid(current_pid);
+    if (p == NULL) return -1;
+    return p->fd[fd_index];
+}
+
+int process_get_fd(int pid, int fd_index) {
+    if (fd_index < 0 || fd_index >= 3) return -1;
+    PCB *p = get_process_by_pid(pid);
+    if (p == NULL) return -1;
+    return p->fd[fd_index];
+}
+
 int process_kill(int pid) {
     PCB *p = get_process_by_pid(pid);
     if (p == NULL || p->state == KILLED) {
@@ -186,6 +201,7 @@ int process_kill(int pid) {
         return -1;
     }
 
+    pipe_on_process_exit(p->fd[0], p->fd[1], p->fd[2]);
     p->state = KILLED;
     p->exit_code = -1;
     sem_remove_waiter(pid);
@@ -307,6 +323,7 @@ int process_list(process_info *buffer, uint64_t max_entries) {
 void process_exit(int exit_code) {
     PCB *me = get_process_by_pid(current_pid);
     if (me != NULL) {
+        pipe_on_process_exit(me->fd[0], me->fd[1], me->fd[2]);
         me->state = TERMINATED;
         me->exit_code = exit_code;
         wake_parent_if_waiting(me);   // si el padre esperaba, lo despierta
@@ -374,6 +391,38 @@ int process_loop_inc(void) {
     if (me == NULL) return -1;
     me->loop_counter++;
     return 0;
+}
+
+int process_create_with_fds(const char *name, void (*fn)(void *), void *arg,
+                             int priority, int foreground, int fd_in, int fd_out) {
+    if (name == NULL || fn == NULL) return -1;
+
+    PCB *p = get_free_slot();
+    if (p == NULL) return -1;
+
+    init_process_common(p, name, foreground ? 1 : 0, priority, current_pid);
+
+    if (fd_in >= 0)  p->fd[0] = fd_in;
+    if (fd_out >= 0) p->fd[1] = fd_out;
+
+    p->stack_base = mm_alloc(STACK_SIZE);
+    if (p->stack_base == NULL) {
+        p->pid = 0;
+        return -1;
+    }
+
+    uint64_t top = (uint64_t)p->stack_base + STACK_SIZE;
+    top &= ~0xFULL; //verrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr
+    top -= 8; 
+    p->stack_pointer = setProcessStackASM((void *)process_wrapper, (void *)top,
+                                          (void *)fn, arg);
+    p->base_pointer = p->stack_pointer;
+
+    PCB *parent = get_process_by_pid(current_pid);
+    if (parent != NULL) parent->children_count++;
+
+    p->state = READY;
+    return p->pid;
 }
 
 /* ================= Scheduler (Round Robin con prioridades) =================

@@ -33,8 +33,21 @@ enum {
     SYS_SEM_CLOSE = 26,
     SYS_SEM_WAIT = 27,
     SYS_SEM_POST = 28,
-    SYS_COUNT = 29
+    SYS_PIPE_OPEN = 29,
+    SYS_CREATE_PROCESS_PIPED = 30,
+    SYS_PIPE_CLOSE = 31,
+    SYS_COUNT = 32
 };
+
+typedef struct {
+    char *name;
+    void (*entry)(void *);
+    void *arg;
+    int priority;
+    int foreground;
+    int fd_in;
+    int fd_out;
+} create_proc_piped_args_t;
 
 // Register snapshot structure (must match kernel ExceptionFrame)
 typedef struct {
@@ -92,6 +105,10 @@ extern int64_t sem_open(const char *name, uint64_t initial_value);
 extern int64_t sem_close(const char *name);
 extern int64_t sem_wait(const char *name);
 extern int64_t sem_post(const char *name);
+extern int64_t pipe_open(void);
+extern int64_t pipe_close(int64_t pipe_id);
+extern int64_t create_process_piped_raw(create_proc_piped_args_t *args);
+int64_t create_process_piped(char *name, void (*entry)(void *), void *arg, int priority, int foreground, int fd_in, int fd_out);
 
 extern void trigger_invalid_opcode(void);  // Trigger Invalid Opcode exception (for testing)
 

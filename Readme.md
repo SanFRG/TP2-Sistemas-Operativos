@@ -130,6 +130,9 @@ Los comandos no distinguen mayusculas de minusculas.
 | `nice` | `<pid> <prio>` | Cambia prioridad de un proceso. Prioridad valida: `0` a `2`. |
 | `block` | `<pid>` | Bloquea un proceso READY/RUNNING o desbloquea uno BLOCKED. |
 | `test_sync` | `<iteraciones> <use_sem: 0|1>` | Ejecuta una prueba de sincronizacion con o sin semaforo. |
+| `cat` | ninguno | Imprime el stdin tal como lo recibe. |
+| `wc` | ninguno | Cuenta la cantidad de lineas del input. |
+| `filter` | ninguno | Filtra las vocales del input (las elimina, pasa el resto). |
 | `exit` | ninguno | Cierra la shell y vuelve al kernel. |
 
 ### Tests disponibles desde la shell
@@ -174,7 +177,15 @@ El caracter requerido para pipes es:
 |
 ```
 
-Estado actual: la shell detecta `|` como caracter reservado, pero todavia no implementa pipelines. La infraestructura de pipes/file descriptors para conectar procesos tampoco esta implementada. Comandos como `cat`, `wc` y `filter` tampoco estan disponibles.
+Conecta stdout del comando izquierdo con stdin del comando derecho. Ejemplo:
+
+```txt
+cat | wc
+cat | filter even
+cat | filter odd
+```
+
+El proceso izquierdo escribe en el pipe; el proceso derecho lee del pipe de forma bloqueante. Cuando el escritor termina, el lector recibe EOF y finaliza.
 
 ## Atajos de teclado
 
@@ -239,6 +250,20 @@ ps
 
 El primer `block` pasa el proceso a BLOCKED. El segundo lo desbloquea y vuelve a READY.
 
+### Pipes
+
+```txt
+cat | wc
+```
+
+Escribi varias lineas de texto. Al presionar `Ctrl+D`, `cat` termina y cierra el pipe. `wc` imprime la cantidad de lineas recibidas.
+
+```txt
+cat | filter
+```
+
+Escribi texto con vocales. `filter` elimina todas las vocales y escribe el resto en pantalla. `Ctrl+D` para terminar.
+
 ### Semaforos y sincronizacion
 
 ```txt
@@ -283,6 +308,10 @@ En el prompt, presionar `Ctrl+D`. La shell interpreta EOF y vuelve a mostrar el 
 - `waitpid` bloqueante para hijos: el padre queda BLOCKED hasta que el hijo termina.
 - Semaforos nombrados con `sem_open`, `sem_close`, `sem_wait` y `sem_post`.
 - Bloqueo de procesos en `sem_wait` sin busy waiting cuando no hay recursos disponibles.
+- Pipes bloqueantes con buffer circular: `pipe_open`, `pipe_read`, `pipe_write`, cierre automatico por exit.
+- Redireccion de `write`/`read` por file descriptors: fd[0]/fd[1] del PCB apuntan a teclado/pantalla (valores 0/1) o a un pipe (valor >= 3).
+- Comandos `cat`, `wc` y `filter` que operan sobre stdin/stdout y funcionan en pipelines.
+- Soporte de `cmd1 | cmd2` en la shell: crea pipe, lanza ambos procesos con fds correctos y espera a que terminen.
 - Proceso idle para cuando no hay procesos READY.
 - `Ctrl+C` para interrumpir lectura o matar foreground.
 - `Ctrl+D` como EOF de lectura.
@@ -294,9 +323,7 @@ En el prompt, presionar `Ctrl+D`. La shell interpreta EOF y vuelve a mostrar el 
 
 - `&`: parcialmente implementado. Se parsea, pero no lanza cualquier comando en background. Para background real usar `loop -b`.
 - Foreground/background: parcialmente implementado. El PCB tiene campo `foreground` y la shell espera un PID foreground, pero no hay manejo generico para todos los comandos.
-- `|`: no implementado.
-- Pipes bloqueantes: no implementados.
-- Redireccion de `read/write` por file descriptors hacia pipes: no implementada. `write` ignora el `fd` y escribe en pantalla.
+- Pipes encadenados tipo `p1 | p2 | p3`: no implementados (solo un pipe por linea).
 - `test_proc`: el fuente esta en `MemoryTest/`, pero no esta integrado como comando y sus wrappers de syscall son stubs.
 - `test_prio`: el fuente esta en `MemoryTest/`, pero no esta integrado como comando y sus wrappers de syscall son stubs.
 - Comandos `cat`, `wc`, `filter`: no implementados.
@@ -305,8 +332,10 @@ En el prompt, presionar `Ctrl+D`. La shell interpreta EOF y vuelve a mostrar el 
 
 ## Limitaciones
 
-- No hay IPC por pipes.
-- `PCB.fd[3]` existe como base para stdin/stdout/stderr, pero `read/write` todavia no redirigen por descriptor.
+- El buffer de cada pipe es de 256 bytes; escrituras mayores bloquean hasta que el lector consuma espacio.
+- Solo se soporta un pipe por linea de comando (`cmd1 | cmd2`). No hay pipes encadenados.
+- `stderr` (fd=2) siempre va a pantalla aunque fd[2] este redirigido.
+- `PCB.fd[2]` (stderr) puede redirigirse a un pipe internamente, pero los mensajes de error del kernel siempre van a pantalla.
 - El scheduler usa Round Robin circular; la prioridad modifica el quantum (`prio + 1`), no el orden absoluto de seleccion.
 - `kill` no permite matar el proceso actual ni el proceso idle.
 - Los procesos en estado `KILLED` no se listan en `ps`.

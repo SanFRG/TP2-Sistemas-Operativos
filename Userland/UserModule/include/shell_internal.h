@@ -19,6 +19,8 @@ typedef struct {
     char *argv[SHELL_MAX_ARGS];
     int background;
     int has_pipe;
+    int argc2;
+    char *argv2[SHELL_MAX_ARGS];
 } ShellCommandLine;
 
 extern int shell_exit;

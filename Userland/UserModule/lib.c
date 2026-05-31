@@ -166,4 +166,17 @@ char getChar() {
     char c;
     read(&c, 1);  // Read 1 character (blocks until Enter or buffer has input)
     return c;
+}
+
+int64_t create_process_piped(char *name, void (*entry)(void *), void *arg,
+                              int priority, int foreground, int fd_in, int fd_out) {
+    create_proc_piped_args_t args;
+    args.name = name;
+    args.entry = entry;
+    args.arg = arg;
+    args.priority = priority;
+    args.foreground = foreground;
+    args.fd_in = fd_in;
+    args.fd_out = fd_out;
+    return create_process_piped_raw(&args);
 }   

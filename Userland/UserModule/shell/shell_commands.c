@@ -2,11 +2,23 @@
 #include <shell_internal.h>
 #include <lib.h>
 #include <test_sync_userland.h>
+#include <shell_pipe_cmds.h>
 
 typedef struct {
     const char *name;
     void (*function)(int argc, char *argv[]);
 } Command;
+
+typedef struct {
+    int argc;
+    char *argv[SHELL_MAX_ARGS];
+    void (*fn)(int, char **);
+} pipe_proc_args_t;
+
+static void pipe_process_entry(void *arg) {
+    pipe_proc_args_t *a = (pipe_proc_args_t *)arg;
+    a->fn(a->argc, a->argv);
+}
 
 static Command commands[] = {
     {"help", cmd_help},
@@ -26,6 +38,9 @@ static Command commands[] = {
     {"nice", cmd_nice},
     {"block", cmd_block},
     {"test_sync", cmd_test_sync},
+    {"cat",       cmd_cat},
+    {"wc",        cmd_wc},
+    {"filter",    cmd_filter},
     {"exit", cmd_exit},
     {0, 0}
 };
@@ -52,13 +67,92 @@ void cmd_help(int argc, char *argv[]) {
     println("  nice <pid> <prio> - Cambia prioridad (0-2)");
     println("  block <pid>       - Bloquea/desbloquea un proceso");
     println("  clear             - Limpia la pantalla");
+    println("  cat               - Imprime stdin tal como lo recibe");
+    println("  wc                - Cuenta la cantidad de lineas del input");
+    println("  filter            - Filtra las vocales del input");
     println("  exit              - Sale de la shell");
     println("");
     println("Modificadores:");
     println("  &                 - Ejecuta en background");
-    println("  |                 - Pipes (pendiente)");
+    println("  |                 - Conecta stdout de cmd1 con stdin de cmd2");
     println("  Ctrl+C            - Mata proceso foreground");
     println("  Ctrl+D            - EOF");
+}
+
+static void (*find_cmd_fn(char *name))(int, char **) {
+    for (int i = 0; commands[i].name != 0; i++) {
+        if (strcasecmp(name, commands[i].name) == 0) {
+            return commands[i].function;
+        }
+    }
+    return 0;
+}
+
+/* Empaqueta la funcion del comando y sus argumentos en la estructura que
+ * recibe pipe_process_entry cuando el proceso arranca. */
+static void fill_pipe_args(pipe_proc_args_t *args, void (*fn)(int, char **),
+                           int argc, char *argv[]) {
+    args->fn = fn;
+    args->argc = argc;
+    for (int i = 0; i < argc; i++) {
+        args->argv[i] = argv[i];
+    }
+    args->argv[argc] = 0; /* terminador NULL al estilo argv */
+}
+
+/* Ejecuta "cmd_izq | cmd_der": conecta el stdout del comando izquierdo con el
+ * stdin del comando derecho a traves de un pipe, y espera a que ambos terminen. */
+static void shell_execute_pipe(ShellCommandLine *line) {
+    /* Resuelve cada nombre de comando a su funcion. */
+    void (*left_fn)(int, char **)  = find_cmd_fn(line->argv[0]);
+    void (*right_fn)(int, char **) = (line->argc2 > 0) ? find_cmd_fn(line->argv2[0]) : 0;
+
+    if (left_fn == 0 || right_fn == 0) {
+        println("Comando no encontrado para pipe.");
+        return;
+    }
+
+    /* Crea el canal que comunica a ambos procesos. */
+    int64_t pipe_id = pipe_open();
+    if (pipe_id < 0) {
+        println("Error: no se pudo crear el pipe.");
+        return;
+    }
+
+    /* Prepara los argumentos con los que arrancara cada proceso. */
+    pipe_proc_args_t left_args, right_args;
+    fill_pipe_args(&left_args,  left_fn,  line->argc,  line->argv);
+    fill_pipe_args(&right_args, right_fn, line->argc2, line->argv2);
+
+    /* Constantes de configuracion de los procesos del pipe. */
+    const int PRIORITY   = 1;
+    const int BACKGROUND = 0;   /* no son foreground: la shell los espera */
+    const int STDIN      = 0;
+    const int STDOUT     = 1;
+
+    /* Izquierdo: lee de stdin del usuario, escribe al pipe. */
+    int64_t left_pid  = create_process_piped("pipe_left",  pipe_process_entry,
+                                             &left_args,  PRIORITY, BACKGROUND,
+                                             STDIN, (int)pipe_id);
+    /* Derecho: lee del pipe, escribe a stdout. */
+    int64_t right_pid = create_process_piped("pipe_right", pipe_process_entry,
+                                             &right_args, PRIORITY, BACKGROUND,
+                                             (int)pipe_id, STDOUT);
+
+    if (left_pid < 0 || right_pid < 0) {
+        println("Error al crear procesos del pipe.");
+        /* Cerramos el pipe: libera el slot y desbloquea a quien estuviera
+         * esperando. Si uno de los procesos si se creo, lo matamos y lo
+         * esperamos para no dejar zombies ni procesos colgados. */
+        pipe_close(pipe_id);
+        if (left_pid >= 0)  { kill_process(left_pid);  waitpid(left_pid); }
+        if (right_pid >= 0) { kill_process(right_pid); waitpid(right_pid); }
+        return;
+    }
+
+    /* Espera a que ambos comandos terminen antes de devolver el prompt. */
+    waitpid(left_pid);
+    waitpid(right_pid);
 }
 
 void shell_execute_command(void) {
@@ -70,7 +164,7 @@ void shell_execute_command(void) {
     }
 
     if (line.has_pipe) {
-        println("Pipes no implementados.");
+        shell_execute_pipe(&line);
         return;
     }
 

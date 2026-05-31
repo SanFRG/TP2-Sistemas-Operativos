@@ -11,6 +11,7 @@
 #include <memoryManager.h>
 #include <process.h>
 #include <semaphore.h>
+#include <pipe.h>
 
 // Variables externas desde interrupts.asm
 extern RegisterFrame user_snapshot;
@@ -44,10 +45,13 @@ void* syscall_table[SYS_COUNT] = {
     &sys_exit,           // 22: SYS_EXIT
     &sys_check_ctrl_c,   // 23: SYS_CHECK_CTRL_C
     &sys_loop_inc,       // 24: SYS_LOOP_INC
-    &sys_sem_open,       // 25: SYS_SEM_OPEN
-    &sys_sem_close,      // 26: SYS_SEM_CLOSE
-    &sys_sem_wait,       // 27: SYS_SEM_WAIT
-    &sys_sem_post        // 28: SYS_SEM_POST
+    &sys_sem_open,             // 25: SYS_SEM_OPEN
+    &sys_sem_close,            // 26: SYS_SEM_CLOSE
+    &sys_sem_wait,             // 27: SYS_SEM_WAIT
+    &sys_sem_post,             // 28: SYS_SEM_POST
+    &sys_pipe_open,            // 29: SYS_PIPE_OPEN
+    &sys_create_process_piped, // 30: SYS_CREATE_PROCESS_PIPED
+    &sys_pipe_close            // 31: SYS_PIPE_CLOSE
 };
 
 // ========== SYSCALL HANDLERS ==========
@@ -75,23 +79,31 @@ uint64_t sys_time(void) {
 }
 
 uint64_t sys_write(uint64_t fd, uint64_t str_ptr, uint64_t length) {
-    // fd = file descriptor (1=stdout, 2=stderr - currently ignored)
-    // str_ptr = string pointer
-    // length = length
-    // Returns: number of bytes written
-
-    (void)fd;
+    if (fd <= 2) {
+        int pipe_fd = process_get_current_fd((int)fd);
+        if (pipe_fd >= PIPE_FD_MIN) {
+            int n = pipe_write(pipe_fd, (const char *)str_ptr, (int)length);
+            return n < 0 ? 0 : (uint64_t)n;
+        }
+    }
     tc_write((const char *)str_ptr, length);
     return length;
 }
 
 uint64_t sys_read(uint64_t buffer, uint64_t max_len) {
     char* buf = (char*)buffer;
-    uint64_t i = 0;
 
-    if (max_len == 0) {
-        return 0;
+    if (max_len == 0) return 0;
+
+    /* if stdin is redirected to a pipe, read from it directly */
+    int pipe_fd = process_get_current_fd(0);
+    if (pipe_fd >= PIPE_FD_MIN) {
+        int n = pipe_read(pipe_fd, buf, (int)(max_len > 1 ? max_len - 1 : max_len));
+        if (n > 0 && (uint64_t)n < max_len) buf[n] = '\0';
+        return (uint64_t)(n < 0 ? 0 : n);
     }
+
+    uint64_t i = 0;
 
     while (i + 1 < max_len) {  // Reserve space for null terminator
         // Check for Ctrl+C (interrupt current read)
@@ -330,4 +342,29 @@ uint64_t sys_sem_post(uint64_t name_ptr) {
         return (uint64_t)-1;
     }
     return (uint64_t)sem_post((const char *)name_ptr);
+}
+
+uint64_t sys_pipe_open(void) {
+    return (uint64_t)pipe_create();
+}
+
+uint64_t sys_pipe_close(uint64_t pipe_id) {
+    pipe_close((int)pipe_id);
+    return 0;
+}
+
+uint64_t sys_create_process_piped(uint64_t args_ptr) {
+    if (args_ptr == 0) return (uint64_t)-1;
+    struct {
+        char *name;
+        void (*entry)(void *);
+        void *arg;
+        int priority;
+        int foreground;
+        int fd_in;
+        int fd_out;
+    } *a = (void *)args_ptr;
+    return (uint64_t)process_create_with_fds(a->name, a->entry, a->arg,
+                                              a->priority, a->foreground,
+                                              a->fd_in, a->fd_out);
 }

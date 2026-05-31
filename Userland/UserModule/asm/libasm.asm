@@ -27,6 +27,9 @@ GLOBAL sem_open
 GLOBAL sem_close
 GLOBAL sem_wait
 GLOBAL sem_post
+GLOBAL pipe_open
+GLOBAL create_process_piped_raw
+GLOBAL pipe_close
 GLOBAL _hlt
 GLOBAL _cli
 GLOBAL _sti
@@ -62,7 +65,10 @@ SYS_SEM_OPEN equ 25
 SYS_SEM_CLOSE equ 26
 SYS_SEM_WAIT equ 27
 SYS_SEM_POST equ 28
-SYS_COUNT equ 29
+SYS_PIPE_OPEN equ 29
+SYS_CREATE_PROCESS_PIPED equ 30
+SYS_PIPE_CLOSE equ 31
+SYS_COUNT equ 32
 
 ; Macro para syscall via int 0x80
 ; %1 = número de syscall
@@ -210,6 +216,20 @@ sem_wait:
 ; rdi = name
 sem_post:
     SYSCALL SYS_SEM_POST
+
+; int64_t pipe_open(void)
+pipe_open:
+    SYSCALL SYS_PIPE_OPEN
+
+; int64_t create_process_piped_raw(create_proc_piped_args_t *args)
+; rdi = pointer to args struct
+create_process_piped_raw:
+    SYSCALL SYS_CREATE_PROCESS_PIPED
+
+; int64_t pipe_close(int64_t pipe_id)
+; rdi = pipe_id
+pipe_close:
+    SYSCALL SYS_PIPE_CLOSE
 
 _hlt:
 	sti
