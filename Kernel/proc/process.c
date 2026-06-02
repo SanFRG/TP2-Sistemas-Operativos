@@ -330,7 +330,7 @@ void process_exit(int exit_code) {
     }
     _yield();                 // cede el CPU; el scheduler ya no nos elige
     while (1) {               // por las dudas: no debe volver nunca
-        _yield();
+        _hlt();
     }
 }
 
@@ -365,12 +365,11 @@ int process_create(const char *name, void (*function)(void *), void *arg, int pr
     // Alineamos el tope a 16 y restamos 8 (como si un 'call' hubiera
     // empujado la direccion de retorno).
     uint64_t top = (uint64_t)p->stack_base + STACK_SIZE;
-    top &= ~0xFULL;
+    top &= ~0xFULL; 
     top -= 8;
-    void *stack_top = (void *)top;
     // El proceso arranca en process_wrapper, que recibe (funcion, arg).
     // Asi, si la funcion retorna, el wrapper llama a process_exit.
-    p->stack_pointer = setProcessStackASM((void *)process_wrapper, stack_top,
+    p->stack_pointer = setProcessStackASM((void *)process_wrapper, (void *)top,
                                           (void *)function, arg);
     p->base_pointer = p->stack_pointer;
 
@@ -386,7 +385,7 @@ int process_create(const char *name, void (*function)(void *), void *arg, int pr
     return p->pid;
 }
 
-int process_loop_inc(void) {
+int process_loop_inc(void) { 
     PCB *me = get_process_by_pid(current_pid);
     if (me == NULL) return -1;
     me->loop_counter++;
@@ -412,7 +411,7 @@ int process_create_with_fds(const char *name, void (*fn)(void *), void *arg,
     }
 
     uint64_t top = (uint64_t)p->stack_base + STACK_SIZE;
-    top &= ~0xFULL; //verrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr
+    top &= ~0xFULL;
     top -= 8; 
     p->stack_pointer = setProcessStackASM((void *)process_wrapper, (void *)top,
                                           (void *)fn, arg);
