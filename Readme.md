@@ -157,16 +157,14 @@ El caracter requerido para background es:
 &
 ```
 
-Estado actual: el parser lo reconoce y lo consume, pero no lo aplica genericamente a todos los comandos. Para demostrar background con lo implementado, usar:
+Estado actual: implementado. Cualquier comando seguido de `&` se ejecuta en background. La shell muestra el PID del proceso y devuelve el prompt inmediatamente.
+
+Ejemplos:
 
 ```txt
-loop -b
-```
-
-Tambien se puede crear `loop` en background con:
-
-```txt
-loop 1 0
+loop &
+test_mm &
+test_sync 100 1 &
 ```
 
 ### Pipes
@@ -312,6 +310,7 @@ En el prompt, presionar `Ctrl+D`. La shell interpreta EOF y vuelve a mostrar el 
 - Redireccion de `write`/`read` por file descriptors: fd[0]/fd[1] del PCB apuntan a teclado/pantalla (valores 0/1) o a un pipe (valor >= 3).
 - Comandos `cat`, `wc` y `filter` que operan sobre stdin/stdout y funcionan en pipelines.
 - Soporte de `cmd1 | cmd2` en la shell: crea pipe, lanza ambos procesos con fds correctos y espera a que terminen.
+- Soporte de `&` para ejecutar cualquier comando en background.
 - Proceso idle para cuando no hay procesos READY.
 - `Ctrl+C` para interrumpir lectura o matar foreground.
 - `Ctrl+D` como EOF de lectura.
@@ -321,8 +320,6 @@ En el prompt, presionar `Ctrl+D`. La shell interpreta EOF y vuelve a mostrar el 
 
 ## Requerimientos faltantes o parcialmente implementados
 
-- `&`: parcialmente implementado. Se parsea, pero no lanza cualquier comando en background. Para background real usar `loop -b`.
-- Foreground/background: parcialmente implementado. El PCB tiene campo `foreground` y la shell espera un PID foreground, pero no hay manejo generico para todos los comandos.
 - Pipes encadenados tipo `p1 | p2 | p3`: no implementados (solo un pipe por linea).
 - `test_proc`: el fuente esta en `MemoryTest/`, pero no esta integrado como comando y sus wrappers de syscall son stubs.
 - `test_prio`: el fuente esta en `MemoryTest/`, pero no esta integrado como comando y sus wrappers de syscall son stubs.

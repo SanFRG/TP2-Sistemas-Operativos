@@ -1,11 +1,6 @@
 #include <shell_pipe.h>
 #include <lib.h>
 
-/*
- * cat: imprime stdin tal como lo recibe.
- * sys_read desde teclado consume el '\n' del Enter; lo reponemos al escribir
- * para que los comandos del lado derecho del pipe reciban lineas completas.
- */
 void cmd_cat(int argc, char *argv[]) {
     (void)argc;
     (void)argv;
@@ -13,8 +8,8 @@ void cmd_cat(int argc, char *argv[]) {
     char buf[128];
     int64_t n;
     while ((n = read(buf, sizeof(buf) - 1)) > 0) {
-        write(1, buf, (int)n);
-        write(1, "\n", 1);
+        buf[n] = '\n';
+        write(1, buf, n + 1);
     }
 }
 
@@ -28,13 +23,21 @@ void cmd_wc(int argc, char *argv[]) {
     char buf[128];
     int64_t n;
     int lines = 0;
+    int reads = 0;
+    int seen_newline = 0;
 
     while ((n = read(buf, sizeof(buf) - 1)) > 0) {
+        reads++;
         for (int i = 0; i < (int)n; i++) {
             if (buf[i] == '\n') {
                 lines++;
+                seen_newline = 1;
             }
         }
+    }
+
+    if (!seen_newline) {
+        lines = reads;
     }
 
     print("lineas: ");
@@ -67,7 +70,11 @@ void cmd_filter(int argc, char *argv[]) {
         }
         if (out_len > 0) {
             write(1, out, out_len);
+            if (out[out_len - 1] != '\n') {
+                write(1, "\n", 1);
+            }
+        } else {
+            write(1, "\n", 1);
         }
-        write(1, "\n", 1);
     }
 }

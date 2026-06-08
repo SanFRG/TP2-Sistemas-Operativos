@@ -3,6 +3,7 @@
 
 #define SHELL_BUFFER_SIZE 256
 #define SHELL_MAX_ARGS 16
+#define SHELL_ARG_MAX 64
 #define SHELL_MAX_PS_ENTRIES 64
 #define SHELL_COLOR_BLACK 0x00000000
 
@@ -23,7 +24,14 @@ typedef struct {
     char *argv2[SHELL_MAX_ARGS];
 } ShellCommandLine;
 
+typedef struct {
+    void (*fn)(int, char **);
+    int argc;
+    char argv[SHELL_MAX_ARGS][SHELL_ARG_MAX];
+} bg_cmd_args_t;
+
 extern int shell_exit;
+extern int shell_bg_flag;
 extern char buffer[SHELL_BUFFER_SIZE];
 
 int shell_parse_line(char *line, ShellCommandLine *command);

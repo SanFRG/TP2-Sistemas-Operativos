@@ -11,14 +11,15 @@ static void loop_process_entry(void *arg) {
     uint64_t interval = 100;
 
     while (1) {
-        loop_inc();
+        uint64_t count = loop_inc();
         ticks = get_ticks();
 
         if (fg && ticks - last_print >= interval) {
             print("[loop] PID: ");
             printInt(pid);
             print(" count: ");
-            println(" corriendo...");
+            printInt((int)count);
+            println("");
             last_print = ticks;
         }
 
@@ -256,19 +257,20 @@ void cmd_loop(int argc, char *argv[]) {
     int fg = 1;
     int i = 1;
 
+    if (shell_bg_flag) {
+        fg = 0;
+    }
+
     while (i < argc) {
         if (argv[i][0] == '-' && argv[i][1] == 'p' && i + 1 < argc) {
             prio = atoi(argv[i + 1]);
             i += 2;
-        } else if (argv[i][0] == '-' && argv[i][1] == 'b') {
-            fg = 0;
-            i++;
         } else {
             int val = atoi(argv[i]);
             if (i == 1) {
                 prio = val;
-            } else if (i == 2) {
-                fg = val;
+            } else {
+                break;
             }
             i++;
         }

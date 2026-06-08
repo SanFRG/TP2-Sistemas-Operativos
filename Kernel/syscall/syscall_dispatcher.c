@@ -140,14 +140,14 @@ uint64_t sys_read(uint64_t buffer, uint64_t max_len) {
         
         if (c == '\n') {
             // Enter pressed: echo newline and return
-            sys_write(1, (uint64_t)"\n", 1);
+            tc_write("\n", 1);
             buf[i] = '\0';
             return i;
         } else if (c == '\b') {
             // Backspace: remove last character from buffer and echo backspace
             if (i > 0) {
                 i--;
-                sys_write(1, (uint64_t)"\b", 1);
+                tc_write("\b", 1);
             }
         } else if (c == '\t') {
             // Tab: expand to spaces (tab stop = 4)
@@ -159,12 +159,12 @@ uint64_t sys_read(uint64_t buffer, uint64_t max_len) {
             // Add spaces to buffer and echo them
             for (int j = 0; j < spaces && i + 1 < max_len; j++) {
                 buf[i++] = ' ';
-                sys_write(1, (uint64_t)" ", 1);
+                tc_write(" ", 1);
             }
         } else if (c >= 32 && c < 127) {
             // Printable character: add to buffer and echo
             buf[i++] = c;
-            sys_write(1, (uint64_t)&c, 1);
+            tc_write(&c, 1);
         }
         // Ignore other characters (control characters, etc.)
     }

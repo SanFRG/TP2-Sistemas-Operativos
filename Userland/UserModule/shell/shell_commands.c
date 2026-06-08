@@ -2,12 +2,14 @@
 #include <shell_internal.h>
 #include <lib.h>
 #include <test_sync_userland.h>
-#include <shell_pipe_cmds.h>
+#include <shell_pipe.h>
 
 typedef struct {
     const char *name;
     void (*function)(int argc, char *argv[]);
 } Command;
+
+int shell_bg_flag = 0;
 
 typedef struct {
     int argc;
@@ -18,6 +20,18 @@ typedef struct {
 static void pipe_process_entry(void *arg) {
     pipe_proc_args_t *a = (pipe_proc_args_t *)arg;
     a->fn(a->argc, a->argv);
+}
+
+static void cmd_process_entry(void *arg) {
+    bg_cmd_args_t *a = (bg_cmd_args_t *)arg;
+    char *argv[SHELL_MAX_ARGS];
+    for (int i = 0; i < a->argc; i++) {
+        argv[i] = a->argv[i];
+    }
+    argv[a->argc] = 0;
+    a->fn(a->argc, argv);
+    mem_free(a);
+    exit_process(0);
 }
 
 static Command commands[] = {
@@ -58,11 +72,8 @@ void cmd_help(int argc, char *argv[]) {
     println("  memtest           - Ejecuta alloc/free de prueba");
     println("  test_mm           - Test de stress de alloc/free");
     println("  test_sync <n> <s> - Test de sincronizacion (s=0/1)");
-    println("  regs              - Muestra los registros guardados");
-    println("  cerodiv           - Ejecuta division por cero");
-    println("  invalido          - Dispara excepcion opcode invalido");
     println("  cancion           - Reproduce Mario Bros");
-    println("  loop [prio] [fg]  - Lanza proceso loop (espera activa)");
+    println("  loop [-p prio]    - Lanza proceso loop (espera activa)");
     println("  kill <pid>        - Mata un proceso");
     println("  nice <pid> <prio> - Cambia prioridad (0-2)");
     println("  block <pid>       - Bloquea/desbloquea un proceso");
@@ -170,7 +181,49 @@ void shell_execute_command(void) {
 
     for (int i = 0; commands[i].name != 0 && !found; i++) {
         if (strcasecmp(line.argv[0], commands[i].name) == 0) {
-            commands[i].function(line.argc, line.argv);
+            if (line.background) {
+                if (strcasecmp(line.argv[0], "exit") == 0) {
+                    commands[i].function(line.argc, line.argv);
+                    found = 1;
+                    break;
+                }
+
+                if (strcasecmp(line.argv[0], "loop") == 0) {
+                    shell_bg_flag = 1;
+                    commands[i].function(line.argc, line.argv);
+                    shell_bg_flag = 0;
+                    found = 1;
+                    break;
+                }
+
+                bg_cmd_args_t *bg = mem_alloc(sizeof(bg_cmd_args_t));
+                if (bg == 0) {
+                    println("Error: no hay memoria para lanzar proceso en background.");
+                    found = 1;
+                    break;
+                }
+                bg->fn = commands[i].function;
+                bg->argc = line.argc;
+                for (int j = 0; j < line.argc; j++) {
+                    int k = 0;
+                    while (line.argv[j][k] != '\0' && k < SHELL_ARG_MAX - 1) {
+                        bg->argv[j][k] = line.argv[j][k];
+                        k++;
+                    }
+                    bg->argv[j][k] = '\0';
+                }
+
+                int64_t pid = create_process(line.argv[0], cmd_process_entry, bg, 1, 0);
+                if (pid > 0) {
+                    print("["); printInt((int)pid); print("] ");
+                    print(line.argv[0]); println(" iniciado en background.");
+                } else {
+                    mem_free(bg);
+                    println("Error: no se pudo crear proceso en background.");
+                }
+            } else {
+                commands[i].function(line.argc, line.argv);
+            }
             found = 1;
         }
     }
