@@ -319,15 +319,13 @@ En el prompt, presionar `Ctrl+D`. La shell interpreta EOF y vuelve a mostrar el 
 - Test `test_mm` en userland.
 - Test `test_sync` en userland.
 - Tests unitarios de host para ambos memory managers.
+- Comandos `cat`, `wc`, `filter`: implementados.
 
 ## Requerimientos faltantes o parcialmente implementados
 
-- Pipes encadenados tipo `p1 | p2 | p3`: no implementados (solo un pipe por linea).
 - `test_proc`: el fuente esta en `MemoryTest/`, pero no esta integrado como comando y sus wrappers de syscall son stubs.
 - `test_prio`: el fuente esta en `MemoryTest/`, pero no esta integrado como comando y sus wrappers de syscall son stubs.
-- Comandos `cat`, `wc`, `filter`: no implementados.
 - Comando `mvar`: no implementado.
-- Pipes encadenados tipo `p1 | p2 | p3`: no implementados.
 
 ## Limitaciones
 
@@ -342,5 +340,4 @@ En el prompt, presionar `Ctrl+D`. La shell interpreta EOF y vuelve a mostrar el 
 - `Ctrl+D` no termina la shell; solo devuelve EOF para la lectura actual.
 - `regs` depende de que exista un snapshot de registros previo; si no lo hay, informa error.
 - La entrada de la shell soporta tokenizacion simple por espacios. No hay comillas, escaping ni multiples comandos por linea.
-- La compilacion por `compile.sh` asume un contenedor Docker existente llamado `TPE`.
 - `run.sh` asume backend de audio ALSA para el PC speaker.

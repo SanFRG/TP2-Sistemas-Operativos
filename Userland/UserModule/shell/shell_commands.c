@@ -82,7 +82,6 @@ void cmd_help(int argc, char *argv[]) {
     println("  wc                - Cuenta la cantidad de lineas del input");
     println("  filter            - Filtra las vocales del input");
     println("  exit              - Sale de la shell");
-    println("");
     println("Modificadores:");
     println("  &                 - Ejecuta en background");
     println("  |                 - Conecta stdout de cmd1 con stdin de cmd2");
