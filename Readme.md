@@ -175,12 +175,14 @@ El caracter requerido para pipes es:
 |
 ```
 
-Conecta stdout del comando izquierdo con stdin del comando derecho. Ejemplo:
+Conecta stdout del comando izquierdo con stdin del comando derecho. Ejemplos:
 
 ```txt
-cat | wc
-cat | filter even
-cat | filter odd
+cat | wc               # cat envia lineas a wc, wc cuenta las lineas
+cat | filter           # cat envia lineas a filter, filter quita vocales
+cat | filter &         # en background: la shell no se bloquea mientras escribis
+loop | wc              # loop genera lineas, wc las cuenta
+time | cat             # time escribe fecha/hora, cat lo reenvia a pantalla
 ```
 
 El proceso izquierdo escribe en el pipe; el proceso derecho lee del pipe de forma bloqueante. Cuando el escritor termina, el lector recibe EOF y finaliza.

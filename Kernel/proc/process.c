@@ -385,11 +385,10 @@ int process_create(const char *name, void (*function)(void *), void *arg, int pr
     return p->pid;
 }
 
-int process_loop_inc(void) { 
+uint64_t process_loop_inc(void) { 
     PCB *me = get_process_by_pid(current_pid);
     if (me == NULL) return -1;
-    me->loop_counter++;
-    return 0;
+    return ++me->loop_counter;
 }
 
 int process_create_with_fds(const char *name, void (*fn)(void *), void *arg,

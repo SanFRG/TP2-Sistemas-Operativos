@@ -60,7 +60,7 @@ int process_create(const char *name, void (*function)(void *), void *arg, int pr
 // Termina el proceso actual de forma ordenada. La llama el wrapper cuando
 // la funcion del proceso retorna; tambien sirve como syscall de exit.
 void process_exit(int exit_code);
-int process_loop_inc(void);
+uint64_t process_loop_inc(void);
 
 // Cambio de contexto: recibe el rsp del proceso interrumpido y devuelve
 // el rsp del proximo proceso a correr. La invoca el handler del timer.
