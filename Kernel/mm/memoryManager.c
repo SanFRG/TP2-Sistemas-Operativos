@@ -1,4 +1,5 @@
 #include <memoryManager.h>
+#include <interrupts.h>
 
 typedef struct block_header {
     uint64_t size;
@@ -105,9 +106,15 @@ void mm_init(void *heap_start, uint64_t heap_size) {
     first_block->next = 0;
 }
 
+/* Las operaciones recorren y modifican la lista de bloques, que es estado
+ * global compartido. Como mm_alloc/mm_free se llaman tanto desde contexto de
+ * proceso (syscalls) como desde el scheduler en contexto de interrupcion
+ * (clean_orphan libera stacks de huerfanos), se protegen con irqsave/irqrestore
+ * para que no se pisen entre si y corrompan la lista. */
 void *mm_alloc(uint64_t size) {
     uint64_t requested_size;
     block_header_t *current;
+    uint64_t flags;
 
     if (heap_base == 0 || size == 0) {
         failed_allocations++;
@@ -115,20 +122,23 @@ void *mm_alloc(uint64_t size) {
     }
 
     requested_size = align8(size);
-    current = first_block;
 
+    flags = _save_irq();
+    current = first_block;
     while (current != 0) {
         if (current->free && current->size >= requested_size) {
             split_block(current, requested_size);
             current->free = 0;
             used_bytes += current->size;
             successful_allocations++;
+            _restore_irq(flags);
             return (void *)block_payload(current);
         }
         current = current->next;
     }
 
     failed_allocations++;
+    _restore_irq(flags);
     return 0;
 }
 
@@ -136,6 +146,7 @@ void mm_free(void *ptr) {
     block_header_t *current;
     block_header_t *previous;
     block_header_t *block;
+    uint64_t flags;
 
     if (ptr == 0 || first_block == 0) {
         return;
@@ -146,6 +157,8 @@ void mm_free(void *ptr) {
     }
 
     block = payload_block(ptr);
+
+    flags = _save_irq();
     current = first_block;
     previous = 0;
 
@@ -155,6 +168,7 @@ void mm_free(void *ptr) {
     }
 
     if (current == 0 || current->free) {
+        _restore_irq(flags);
         return;
     }
 
@@ -170,16 +184,19 @@ void mm_free(void *ptr) {
     if (previous != 0) {
         coalesce_next(previous);
     }
+    _restore_irq(flags);
 }
 
 void mm_get_status(mm_status_t *out) {
     block_header_t *current;
     uint64_t free_bytes;
+    uint64_t flags;
 
     if (out == 0) {
         return;
     }
 
+    flags = _save_irq();
     free_bytes = 0;
     current = first_block;
     while (current != 0) {
@@ -195,4 +212,5 @@ void mm_get_status(mm_status_t *out) {
     out->successful_allocations = successful_allocations;
     out->successful_frees = successful_frees;
     out->failed_allocations = failed_allocations;
+    _restore_irq(flags);
 }

@@ -184,6 +184,12 @@ int sem_close(const char *name) {
     return 0;
 }
 
+/* Semaforo basado en value (no en handoff directo): el "token" vive siempre en
+ * sem->value. sem_post incrementa value y despierta a un esperante para que
+ * REINTENTE tomarlo; el esperante, al despertar, vuelve a chequear value. Asi,
+ * si se mata a un proceso recien despertado (READY pero que todavia no corrio),
+ * el token no se pierde: value quedo incrementado y lo toma otro. Esto evita el
+ * deadlock al matar procesos que usan semaforos (p. ej. mvar). */
 int sem_wait(const char *name) {
     int idx;
     semaphore_t *sem;
@@ -193,35 +199,47 @@ int sem_wait(const char *name) {
         return -1;
     }
 
-    _cli();
-    idx = find_semaphore(name);
-    if (idx < 0) {
-        _sti();
-        return -1;
-    }
+    while (1) {
+        _cli();
+        idx = find_semaphore(name);
+        if (idx < 0) {
+            _sti();
+            return -1;
+        }
 
-    sem = &sem_table[idx];
-    if (sem->value > 0) {
-        sem->value--;
-        _sti();
-        return 0;
-    }
+        sem = &sem_table[idx];
+        if (sem->value > 0) {
+            sem->value--;
+            _sti();
+            return 0;
+        }
 
-    my_pid = process_get_current_pid();
-    if (my_pid <= 0 || enqueue_waiter(sem, my_pid) != 0) {
-        _sti();
-        return -1;
-    }
+        my_pid = process_get_current_pid();
+        if (my_pid <= 0 || enqueue_waiter(sem, my_pid) != 0) {
+            _sti();
+            return -1;
+        }
 
-    if (process_block_current() != 0) {
-        remove_waiter_from_sem(sem, my_pid);
-        _sti();
-        return -1;
-    }
+        if (process_block_current() != 0) {
+            remove_waiter_from_sem(sem, my_pid);
+            _sti();
+            return -1;
+        }
 
-    _sti();
-    _yield();
-    return 0;
+        _sti();
+        _yield();
+
+        /* Despertamos. Nos sacamos de la cola (sem_post ya nos dequeueo, pero
+         * tambien podrian habernos despertado con 'block/unblock') y el bucle
+         * reintenta tomar value. Si otro lo gano, value sera 0 y nos volvemos
+         * a bloquear: no hay busy-wait porque cada vuelta hace _yield. */
+        _cli();
+        idx = find_semaphore(name);
+        if (idx >= 0) {
+            remove_waiter_from_sem(&sem_table[idx], my_pid);
+        }
+        _sti();
+    }
 }
 
 int sem_post(const char *name) {
@@ -240,30 +258,27 @@ int sem_post(const char *name) {
     }
 
     sem = &sem_table[idx];
+    sem->value++;   /* el token queda en value, no se entrega "en mano" */
 
+    /* Despierta a un esperante para que reintente. Saltea pids muertos (no
+     * deberian quedar en la cola porque process_kill los limpia, pero por las
+     * dudas). value queda incrementado: si nadie lo toma ahora, lo tomara el
+     * proximo sem_wait. */
     while (sem->wait_count > 0) {
         int pid = dequeue_waiter(sem);
-        int rc;
-
         _sti();
-        rc = process_unblock(pid);
-        if (rc == 0) {
-            _cli();
-            if (sem_table[idx].in_use && sem_table[idx].ref_count == 0 && sem_table[idx].wait_count == 0) {
-                memset(&sem_table[idx], 0, sizeof(sem_table[idx]));
-            }
-            _sti();
+        if (process_unblock(pid) == 0) {
             return 0;
         }
         _cli();
-        if (idx < 0 || idx >= MAX_SEMAPHORES || !sem_table[idx].in_use) {
+        idx = find_semaphore(name);
+        if (idx < 0 || !sem_table[idx].in_use) {
             _sti();
             return -1;
         }
         sem = &sem_table[idx];
     }
 
-    sem->value++;
     _sti();
     return 0;
 }

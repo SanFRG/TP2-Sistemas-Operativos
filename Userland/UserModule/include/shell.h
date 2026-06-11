@@ -18,6 +18,8 @@ void cmd_loop(int argc, char *argv[]);
 void cmd_kill(int argc, char *argv[]);
 void cmd_nice(int argc, char *argv[]);
 void cmd_block(int argc, char *argv[]);
+void cmd_test_proc(int argc, char *argv[]);
+void cmd_mvar(int argc, char *argv[]);
 void cmd_exit(int argc, char *argv[]);
 
 #endif

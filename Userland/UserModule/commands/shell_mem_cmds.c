@@ -4,8 +4,6 @@
 #include <stdint.h>
 
 #define MAX_MM_BLOCKS 128
-#define TEST_MM_ITERS 40
-#define TEST_MM_MAX_MEMORY (128 * 1024)
 
 typedef struct {
     void *address;
@@ -21,11 +19,14 @@ static uint32_t mm_rand_u32(void) {
     return (mm_rand_z << 16) + mm_rand_w;
 }
 
+/* Devuelve un entero uniforme en [0, max). Aritmetica entera de 64 bits para
+ * evitar punto flotante: el kernel compila con -mno-sse y no guarda el estado
+ * x87/FPU en el context switch. */
 static uint32_t mm_uniform(uint32_t max) {
     if (max == 0) {
         return 0;
     }
-    return (uint32_t)((mm_rand_u32() + 1.0) * 2.328306435454494e-10 * max);
+    return (uint32_t)(((uint64_t)mm_rand_u32() * max) >> 32);
 }
 
 static void mm_fill(void *start, uint8_t value, uint32_t size) {
@@ -160,34 +161,47 @@ void cmd_memtest(int argc, char *argv[]) {
 }
 
 void cmd_test_mm(int argc, char *argv[]) {
-    (void)argc;
-    (void)argv;
-
     mm_rq_t reqs[MAX_MM_BLOCKS];
     uint32_t total;
     uint8_t rq;
     uint32_t i;
+    uint32_t max_memory;
+    uint64_t cycle = 0;
 
-    println("test_mm: iniciando (iteraciones acotadas)...");
+    if (argc != 2) {
+        println("Uso: test_mm <memoria_maxima_en_bytes>");
+        return;
+    }
 
-    for (int iter = 0; iter < TEST_MM_ITERS; iter++) {
+    int parsed = atoi(argv[1]);
+    if (parsed <= 0) {
+        println("Uso: test_mm <memoria_maxima_en_bytes>");
+        return;
+    }
+    max_memory = (uint32_t)parsed;
+
+    print("test_mm: corriendo con max_memory=");
+    printInt((int)max_memory);
+    println(" bytes (Ctrl+C o kill para terminar)...");
+
+    /* Bucle infinito como el test de la catedra: pide bloques de tamanio
+     * aleatorio hasta llenar max_memory, los escribe, verifica que no haya
+     * corrupcion y los libera. Solo corta si detecta un error. */
+    while (1) {
         rq = 0;
         total = 0;
 
-        while (rq < MAX_MM_BLOCKS && total < TEST_MM_MAX_MEMORY) {
-            uint32_t remaining = TEST_MM_MAX_MEMORY - total;
-            uint32_t size = mm_uniform(remaining);
-            if (size == 0) {
-                size = 1;
-            }
+        while (rq < MAX_MM_BLOCKS && total < max_memory) {
+            uint32_t remaining = max_memory - total;
+            uint32_t size = mm_uniform(remaining - 1) + 1;  /* [1, remaining-1] */
 
-            reqs[rq].size = size;
             reqs[rq].address = mem_alloc(size);
             if (reqs[rq].address != 0) {
+                reqs[rq].size = size;
                 total += size;
                 rq++;
             } else {
-                break;
+                break;  /* sin memoria: cerramos esta ronda */
             }
         }
 
@@ -198,7 +212,8 @@ void cmd_test_mm(int argc, char *argv[]) {
         }
 
         for (i = 0; i < rq; i++) {
-            if (reqs[i].address != 0 && !mm_check(reqs[i].address, (uint8_t)i, reqs[i].size)) {
+            if (reqs[i].address != 0 &&
+                !mm_check(reqs[i].address, (uint8_t)i, reqs[i].size)) {
                 println("test_mm ERROR: corrupcion detectada");
                 return;
             }
@@ -209,7 +224,9 @@ void cmd_test_mm(int argc, char *argv[]) {
                 mem_free(reqs[i].address);
             }
         }
-    }
 
-    println("test_mm OK");
+        print("test_mm: ciclo ");
+        printInt((int)cycle++);
+        println(" OK");
+    }
 }

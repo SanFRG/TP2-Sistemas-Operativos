@@ -20,6 +20,13 @@ void _cli(void);
 
 void _sti(void);
 
+// irqsave/irqrestore: deshabilitan interrupciones guardando el estado previo
+// del flag IF, para proteger secciones criticas que pueden ejecutarse tanto en
+// contexto de proceso como dentro de un handler (donde _sti seria incorrecto).
+uint64_t _save_irq(void);
+
+void _restore_irq(uint64_t flags);
+
 void _hlt(void);
 
 void picMasterMask(uint8_t mask);

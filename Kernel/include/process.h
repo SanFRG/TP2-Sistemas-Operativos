@@ -39,6 +39,8 @@ typedef struct {
     int foreground;
     int state;
     uint64_t loop_counter;
+    uint64_t stack_pointer;
+    uint64_t base_pointer;
     char name[PROCESS_NAME_LEN];
 } process_info; //separado más que nada por el ps y evitar que se acceda a info clave desde userland..TODO:ver si quitar o no
 

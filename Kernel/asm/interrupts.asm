@@ -1,6 +1,8 @@
 ﻿
 GLOBAL _cli
 GLOBAL _sti
+GLOBAL _save_irq
+GLOBAL _restore_irq
 GLOBAL picMasterMask
 GLOBAL picSlaveMask
 GLOBAL haltcpu
@@ -150,6 +152,22 @@ _cli:
 
 _sti:
 	sti
+	ret
+
+; uint64_t _save_irq(void): devuelve RFLAGS actual y deshabilita interrupciones.
+; Sirve como "irqsave": si ya venian deshabilitadas (estamos en un handler),
+; el flag guardado tendra IF=0 y _restore_irq las dejara deshabilitadas.
+_save_irq:
+	pushfq
+	pop rax
+	cli
+	ret
+
+; void _restore_irq(uint64_t flags): restaura RFLAGS (incluye el bit IF) desde
+; el valor que devolvio _save_irq.
+_restore_irq:
+	push rdi
+	popfq
 	ret
 
 picMasterMask:

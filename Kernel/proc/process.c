@@ -204,8 +204,15 @@ int process_kill(int pid) {
     pipe_on_process_exit(p->fd[0], p->fd[1], p->fd[2]);
     p->state = KILLED;
     p->exit_code = -1;
-    sem_remove_waiter(pid);
+    sem_remove_waiter(pid);   // ya protege su seccion critica con _cli/_sti
     wake_parent_if_waiting(p);
+
+    // Si el proceso muerto era huerfano (padre ya no existe), nadie lo va a
+    // esperar con wait: lo recolectamos aca mismo, en contexto de proceso y de
+    // forma atomica (irqsave), en vez de hacerlo desde el scheduler.
+    uint64_t flags = _save_irq();
+    clean_orphan();
+    _restore_irq(flags);
     return 0;
 }
 
@@ -312,6 +319,8 @@ int process_list(process_info *buffer, uint64_t max_entries) {
         buffer[count].foreground = p->foreground;
         buffer[count].state = (int)p->state;
         buffer[count].loop_counter = p->loop_counter;
+        buffer[count].stack_pointer = (uint64_t)p->stack_pointer;
+        buffer[count].base_pointer = (uint64_t)p->base_pointer;
         init_name(buffer[count].name, p->name);
         count++;
     }
@@ -343,12 +352,22 @@ static void process_wrapper(void (*fn)(void *), void *arg) {
 }
 
 int process_create(const char *name, void (*function)(void *), void *arg, int priority, int foreground) {
+    uint64_t flags;
+    PCB *p;
+
     if (name == NULL || function == NULL) {
         return -1;
     }
 
-    PCB *p = get_free_slot();
+    // Atomico respecto del scheduler: la busqueda de slot libre y la asignacion
+    // del pid no pueden ser interrumpidas (sino dos creaciones podrian tomar el
+    // mismo slot). Tambien reaprovechamos para reapear huerfanos muertos.
+    flags = _save_irq();
+    clean_orphan();
+
+    p = get_free_slot();
     if (p == NULL) {
+        _restore_irq(flags);
         return -1;
     }
 
@@ -357,6 +376,7 @@ int process_create(const char *name, void (*function)(void *), void *arg, int pr
     p->stack_base = mm_alloc(STACK_SIZE);
     if (p->stack_base == NULL) {
         p->pid = 0; //si falla lo dejamos como slot libre
+        _restore_irq(flags);
         return -1;
     }
 
@@ -382,7 +402,9 @@ int process_create(const char *name, void (*function)(void *), void *arg, int pr
     // elegible. Este unico store atomico "publica" el proceso; si un timer
     // lo interrumpe antes, lo ve BLOCKED y no lo elige a medio armar.
     p->state = READY;
-    return p->pid;
+    int new_pid = p->pid;
+    _restore_irq(flags);
+    return new_pid;
 }
 
 uint64_t process_loop_inc(void) { 
@@ -393,10 +415,19 @@ uint64_t process_loop_inc(void) {
 
 int process_create_with_fds(const char *name, void (*fn)(void *), void *arg,
                              int priority, int foreground, int fd_in, int fd_out) {
+    uint64_t flags;
+    PCB *p;
+
     if (name == NULL || fn == NULL) return -1;
 
-    PCB *p = get_free_slot();
-    if (p == NULL) return -1;
+    flags = _save_irq();
+    clean_orphan();
+
+    p = get_free_slot();
+    if (p == NULL) {
+        _restore_irq(flags);
+        return -1;
+    }
 
     init_process_common(p, name, foreground ? 1 : 0, priority, current_pid);
 
@@ -406,12 +437,13 @@ int process_create_with_fds(const char *name, void (*fn)(void *), void *arg,
     p->stack_base = mm_alloc(STACK_SIZE);
     if (p->stack_base == NULL) {
         p->pid = 0;
+        _restore_irq(flags);
         return -1;
     }
 
     uint64_t top = (uint64_t)p->stack_base + STACK_SIZE;
     top &= ~0xFULL;
-    top -= 8; 
+    top -= 8;
     p->stack_pointer = setProcessStackASM((void *)process_wrapper, (void *)top,
                                           (void *)fn, arg);
     p->base_pointer = p->stack_pointer;
@@ -420,7 +452,9 @@ int process_create_with_fds(const char *name, void (*fn)(void *), void *arg,
     if (parent != NULL) parent->children_count++;
 
     p->state = READY;
-    return p->pid;
+    int new_pid = p->pid;
+    _restore_irq(flags);
+    return new_pid;
 }
 
 /* ================= Scheduler (Round Robin con prioridades) =================
@@ -466,8 +500,12 @@ static int pick_next_ready(void) {
 void *scheduler_switch(void *current_rsp) {
     PCB *current = get_process_by_pid(current_pid);
 
-    // Mantenimiento liviano: evita acumulacion de zombies huerfanos.
-    clean_orphan();
+    // NOTA: la recoleccion de huerfanos (clean_orphan) NO se hace aca. Antes se
+    // llamaba en cada tick, pero liberar memoria (mm_free) y limpiar slots desde
+    // el contexto de interrupcion se pisaba con las operaciones de proceso
+    // (create/kill/wait) y corrompia el heap/tabla -> #GP. Ahora se reapean los
+    // huerfanos en contexto de proceso (process_kill / process_create), de forma
+    // atomica con irqsave.
 
     // 1. Guardar siempre el contexto del proceso actual.
     if (current != NULL) {

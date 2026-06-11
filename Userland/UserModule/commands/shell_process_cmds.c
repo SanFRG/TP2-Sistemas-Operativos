@@ -77,6 +77,26 @@ void shell_print_int_padded(int n, int width) {
     }
 }
 
+/* Imprime una etiqueta de columna alineada a la izquierda y rellena con
+ * espacios hasta 'width', para que el header coincida con las columnas. */
+static void ps_print_label(const char *s, int width) {
+    print(s);
+    for (int i = strlen(s); i < width; i++) {
+        print(" ");
+    }
+}
+
+/* Imprime "0x" + hex y rellena con espacios hasta 'width' columnas. */
+static void ps_print_hex_field(uint64_t v, int width) {
+    char buf[20];
+    hexToString(v, buf);
+    print("0x");
+    print(buf);
+    for (int i = 2 + strlen(buf); i < width; i++) {
+        print(" ");
+    }
+}
+
 void cmd_ps(int argc, char *argv[]) {
     (void)argc;
     (void)argv;
@@ -88,49 +108,37 @@ void cmd_ps(int argc, char *argv[]) {
         return;
     }
 
-    int max_count = 0;
-    for (int i = 0; i < count; i++) {
-        int c = (int)entries[i].loop_counter;
-        if (c > max_count) {
-            max_count = c;
-        }
-    }
-
-    int count_width = 5;
-    int tmp = max_count;
-    while (tmp >= 10) {
-        count_width++;
-        tmp /= 10;
-    }
-
-    print("PID  PPID  PRIO FG  STATE");
-    for (int i = 0; i < 6; i++) {
-        print(" ");
-    }
-    for (int i = 5; i < count_width; i++) {
-        print(" ");
-    }
-    println(" COUNT NAME");
+    ps_print_label("PID", 4);   print("  ");
+    ps_print_label("PPID", 4);  print("  ");
+    ps_print_label("PRIO", 4);  print("  ");
+    ps_print_label("FG", 2);    print("  ");
+    ps_print_label("STATE", 11);print("  ");
+    ps_print_label("SP", 13);   print("  ");
+    ps_print_label("BP", 13);   print("  ");
+    ps_print_label("COUNT", 5); print("  ");
+    println("NAME");
 
     for (int i = 0; i < count; i++) {
-        shell_print_int_padded(entries[i].pid, 3);
+        shell_print_int_padded(entries[i].pid, 4);
         print("  ");
-        shell_print_int_padded(entries[i].parent_pid, 5);
-        print(" ");
-        shell_print_int_padded(entries[i].priority, 3);
+        shell_print_int_padded(entries[i].parent_pid, 4);
+        print("  ");
+        shell_print_int_padded(entries[i].priority, 4);
         print("  ");
         shell_print_int_padded(entries[i].foreground, 2);
         print("  ");
 
         const char *state = shell_process_state_name(entries[i].state);
-        print(state);
-        int state_len = strlen(state);
-        for (int j = 0; j < 11 - state_len; j++) {
-            print(" ");
-        }
+        ps_print_label(state, 11);
+        print("  ");
 
-        shell_print_int_padded((int)entries[i].loop_counter, count_width);
-        print(" ");
+        ps_print_hex_field(entries[i].stack_pointer, 13);
+        print("  ");
+        ps_print_hex_field(entries[i].base_pointer, 13);
+        print("  ");
+
+        shell_print_int_padded((int)entries[i].loop_counter, 5);
+        print("  ");
         println(entries[i].name);
     }
 }

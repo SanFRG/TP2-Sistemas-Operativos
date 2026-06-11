@@ -72,6 +72,8 @@ typedef struct {
     int foreground;
     int state;
     uint64_t loop_counter;
+    uint64_t stack_pointer;
+    uint64_t base_pointer;
     char name[32];
 } process_info;
 

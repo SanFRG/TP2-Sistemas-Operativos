@@ -50,6 +50,8 @@ static Command commands[] = {
     {"nice", cmd_nice},
     {"block", cmd_block},
     {"test_sync", cmd_test_sync},
+    {"test_proc", cmd_test_proc},
+    {"mvar",      cmd_mvar},
     {"cat",       cmd_cat},
     {"wc",        cmd_wc},
     {"filter",    cmd_filter},
@@ -68,8 +70,10 @@ void cmd_help(int argc, char *argv[]) {
     println("  pid               - Muestra el PID del proceso actual");
     println("  ps                - Lista procesos activos");
     println("  memtest           - Ejecuta alloc/free de prueba");
-    println("  test_mm           - Test de stress de alloc/free");
+    println("  test_mm <maxmem>  - Test de stress de alloc/free (bytes)");
     println("  test_sync <n> <s> - Test de sincronizacion (s=0/1)");
+    println("  test_proc <n>     - Test de procesos (crea/mata/bloquea n)");
+    println("  mvar <esc> <lec>  - Lectores/escritores sobre una MVar");
     println("  cancion           - Reproduce Mario Bros");
     println("  loop [-p prio]    - Lanza proceso loop (espera activa)");
     println("  kill <pid>        - Mata un proceso");
