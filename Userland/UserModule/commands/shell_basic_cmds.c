@@ -1,7 +1,6 @@
 #include <shell.h>
 #include <shell_internal.h>
 #include <lib.h>
-#include <test_exceptions.h>
 #include <sound.h>
 
 void cmd_time(int argc, char *argv[]) {
@@ -129,18 +128,6 @@ void cmd_clear(int argc, char *argv[]) {
     (void)argc;
     (void)argv;
     clear_screen(SHELL_COLOR_BLACK);
-}
-
-void cmd_test_cero_division(int argc, char *argv[]) {
-    (void)argc;
-    (void)argv;
-    run_exception_test_zero_division();
-}
-
-void cmd_test_invalid_opcode(int argc, char *argv[]) {
-    (void)argc;
-    (void)argv;
-    run_exception_test_invalid_opcode();
 }
 
 void cmd_cancion(int argc, char *argv[]) {

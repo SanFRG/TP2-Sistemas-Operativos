@@ -44,8 +44,6 @@ static Command commands[] = {
     {"test_mm", cmd_test_mm},
     {"regs", cmd_registers},
     {"clear", cmd_clear},
-    {"cerodiv", cmd_test_cero_division},
-    {"invalido", cmd_test_invalid_opcode},
     {"cancion", cmd_cancion},
     {"loop", cmd_loop},
     {"kill", cmd_kill},
@@ -165,9 +163,46 @@ static void shell_execute_pipe(ShellCommandLine *line) {
     waitpid(right_pid);
 }
 
+/* Comandos que deben correr dentro del proceso shell (no como proceso
+ * separado) porque modifican su estado interno. */
+static int is_shell_builtin(const char *name) {
+    return strcasecmp(name, "exit") == 0;
+}
+
+/* Lanza un comando como proceso separado. Empaqueta la funcion y una copia de
+ * los argumentos en bg_cmd_args_t (cmd_process_entry los libera al terminar).
+ * Devuelve el pid (>0) o -1 en caso de error, imprimiendo el motivo. */
+static int64_t launch_command_process(void (*fn)(int, char **),
+                                      ShellCommandLine *line, int foreground) {
+    bg_cmd_args_t *args = mem_alloc(sizeof(bg_cmd_args_t));
+    if (args == 0) {
+        println("Error: no hay memoria para lanzar el proceso.");
+        return -1;
+    }
+
+    args->fn = fn;
+    args->argc = line->argc;
+    for (int j = 0; j < line->argc; j++) {
+        int k = 0;
+        while (line->argv[j][k] != '\0' && k < SHELL_ARG_MAX - 1) {
+            args->argv[j][k] = line->argv[j][k];
+            k++;
+        }
+        args->argv[j][k] = '\0';
+    }
+
+    int64_t pid = create_process(line->argv[0], cmd_process_entry, args, 1,
+                                 foreground);
+    if (pid <= 0) {
+        mem_free(args);
+        println("Error: no se pudo crear el proceso.");
+        return -1;
+    }
+    return pid;
+}
+
 void shell_execute_command(void) {
     ShellCommandLine line;
-    int found = 0;
 
     if (shell_parse_line(buffer, &line) <= 0) {
         return;
@@ -178,57 +213,43 @@ void shell_execute_command(void) {
         return;
     }
 
-    for (int i = 0; commands[i].name != 0 && !found; i++) {
-        if (strcasecmp(line.argv[0], commands[i].name) == 0) {
-            if (line.background) {
-                if (strcasecmp(line.argv[0], "exit") == 0) {
-                    commands[i].function(line.argc, line.argv);
-                    found = 1;
-                    break;
-                }
-
-                if (strcasecmp(line.argv[0], "loop") == 0) {
-                    shell_bg_flag = 1;
-                    commands[i].function(line.argc, line.argv);
-                    shell_bg_flag = 0;
-                    found = 1;
-                    break;
-                }
-
-                bg_cmd_args_t *bg = mem_alloc(sizeof(bg_cmd_args_t));
-                if (bg == 0) {
-                    println("Error: no hay memoria para lanzar proceso en background.");
-                    found = 1;
-                    break;
-                }
-                bg->fn = commands[i].function;
-                bg->argc = line.argc;
-                for (int j = 0; j < line.argc; j++) {
-                    int k = 0;
-                    while (line.argv[j][k] != '\0' && k < SHELL_ARG_MAX - 1) {
-                        bg->argv[j][k] = line.argv[j][k];
-                        k++;
-                    }
-                    bg->argv[j][k] = '\0';
-                }
-
-                int64_t pid = create_process(line.argv[0], cmd_process_entry, bg, 1, 0);
-                if (pid > 0) {
-                    print("["); printInt((int)pid); print("] ");
-                    print(line.argv[0]); println(" iniciado en background.");
-                } else {
-                    mem_free(bg);
-                    println("Error: no se pudo crear proceso en background.");
-                }
-            } else {
-                commands[i].function(line.argc, line.argv);
-            }
-            found = 1;
-        }
+    void (*fn)(int, char **) = find_cmd_fn(line.argv[0]);
+    if (fn == 0) {
+        println("Comando desconocido. Escribe 'help' para ver los comandos.");
+        return;
     }
 
-    if (!found) {
-        println("Comando desconocido. Escribe 'help' para ver los comandos.");
+    /* 'exit' corre inline: setea shell_exit en el propio proceso shell. */
+    if (is_shell_builtin(line.argv[0])) {
+        fn(line.argc, line.argv);
+        return;
+    }
+
+    /* 'loop' es su propio lanzador: crea el proceso por dentro. shell_bg_flag
+     * le indica si debe quedar en foreground o background. */
+    if (strcasecmp(line.argv[0], "loop") == 0) {
+        shell_bg_flag = line.background ? 1 : 0;
+        fn(line.argc, line.argv);
+        shell_bg_flag = 0;
+        return;
+    }
+
+    /* Resto de los comandos: corren como proceso separado, igual que el
+     * enunciado pide (no como built-ins dentro de la shell). */
+    int64_t pid = launch_command_process(fn, &line, line.background ? 0 : 1);
+    if (pid <= 0) {
+        return;  /* launch_command_process ya informo el error */
+    }
+
+    if (line.background) {
+        print("[");
+        printInt((int)pid);
+        print("] ");
+        print(line.argv[0]);
+        println(" iniciado en background.");
+    } else {
+        /* La shell espera a este proceso (ver handle_foreground_process). */
+        shell_set_foreground_pid((int)pid);
     }
 }
 

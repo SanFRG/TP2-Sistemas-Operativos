@@ -33,7 +33,6 @@ GLOBAL pipe_close
 GLOBAL _hlt
 GLOBAL _cli
 GLOBAL _sti
-GLOBAL trigger_invalid_opcode
 
 ; Syscall numbers (índices en syscall_table)
 SYS_READ equ 0
@@ -244,9 +243,3 @@ _cli:
 _sti:
 	sti
 	ret
-
-; void trigger_invalid_opcode(void)
-; Ejecuta la instrucción UD2 para generar excepción #UD (Invalid Opcode)
-trigger_invalid_opcode:
-    ud2
-    ret

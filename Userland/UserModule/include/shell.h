@@ -13,8 +13,6 @@ void cmd_memtest(int argc, char *argv[]);
 void cmd_test_mm(int argc, char *argv[]);
 void cmd_registers(int argc, char *argv[]);
 void cmd_clear(int argc, char *argv[]);
-void cmd_test_cero_division(int argc, char *argv[]);
-void cmd_test_invalid_opcode(int argc, char *argv[]);
 void cmd_cancion(int argc, char *argv[]);
 void cmd_loop(int argc, char *argv[]);
 void cmd_kill(int argc, char *argv[]);

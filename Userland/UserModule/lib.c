@@ -33,16 +33,16 @@ static char to_lower(char c) {
 int strcasecmp(const char* s1, const char* s2) {
     while (*s1 && *s2) {
         char c1 = to_lower(*s1);
-        char c2 = (*s2);
+        char c2 = to_lower(*s2);
         if (c1 != c2) {
             return (unsigned char)c1 - (unsigned char)c2;
         }
-        
+
         s1++;
         s2++;
     }
-    
-    return to_lower(*s1) - (*s2);
+
+    return to_lower(*s1) - to_lower(*s2);
 }
 
 // Print string

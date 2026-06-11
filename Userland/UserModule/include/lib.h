@@ -110,8 +110,6 @@ extern int64_t pipe_close(int64_t pipe_id);
 extern int64_t create_process_piped_raw(create_proc_piped_args_t *args);
 int64_t create_process_piped(char *name, void (*entry)(void *), void *arg, int priority, int foreground, int fd_in, int fd_out);
 
-extern void trigger_invalid_opcode(void);  // Trigger Invalid Opcode exception (for testing)
-
 // String functions
 int strlen(const char* str);
 int strcmp(const char* s1, const char* s2);
