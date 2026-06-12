@@ -1,4 +1,4 @@
-#include <shell_pipe.h>
+#include <shell_io_cmds.h>
 #include <lib.h>
 
 void cmd_cat(int argc, char *argv[]) {
