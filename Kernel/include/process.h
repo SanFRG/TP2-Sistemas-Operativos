@@ -6,6 +6,11 @@
 #define PROCESS_NAME_LEN 32
 #define MAX_PROCESSES 64
 
+// Capacidad del stack de "tokens de semaforo en posesion" de cada proceso.
+// Se usa para devolver automaticamente los tokens al morir y evitar deadlocks
+// (ver process_release_held_sems / semaphore.c).
+#define PROC_MAX_HELD_SEMS 32
+
 // Rango de prioridades del scheduler. Mayor numero = mas prioridad =
 // elegido con mas frecuencia por el scheduler (mas turnos por ronda).
 #define MIN_PRIORITY 0
@@ -32,6 +37,8 @@ typedef struct PCB {
     void *base_pointer;
     int sched_credits;       // turnos restantes en la ronda actual (weighted RR)
     uint64_t sched_vtime;    // tiempo virtual para wakeup justo ponderado de semaforos
+    int sem_held[PROC_MAX_HELD_SEMS]; // stack de indices de semaforo tomados y no devueltos
+    int sem_held_count;
     struct PCB *next;
 } PCB;
 
@@ -67,6 +74,15 @@ int process_get_priority(int pid);   // -1 si el pid no existe
 // mas lento y por ende es despertado mas seguido (pero sin monopolizar).
 uint64_t process_get_vtime(int pid);
 void process_charge_vtime(int pid);
+
+// Tracking de tokens de semaforo en posesion de un proceso, para devolverlos
+// automaticamente si el proceso muere en su seccion critica (evita deadlocks).
+// Las llama semaphore.c: push al tomar un token (sem_wait exitoso), release al
+// devolverlo (sem_post). release saca el token que coincide con sem_idx; si no
+// hay coincidencia (patron productor/consumidor, p. ej. mvar: se hace wait de
+// uno y post de otro) saca el tope del stack (LIFO).
+void process_sem_held_push(int pid, int sem_idx);
+void process_sem_held_release(int pid, int sem_idx);
 int process_wait(int pid);
 int process_list(process_info *buffer, uint64_t max_entries);
 int process_create(const char *name, void (*function)(void *), void *arg, int priority, int foreground);

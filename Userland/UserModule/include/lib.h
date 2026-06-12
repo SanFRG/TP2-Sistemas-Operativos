@@ -142,5 +142,5 @@ void print2Digits(int num);
 void itoa(int num, char* buffer);
 void hexToString(uint64_t num, char* buffer);
 
-#endif LIB_USER_H
+#endif // LIB_USER_H
 

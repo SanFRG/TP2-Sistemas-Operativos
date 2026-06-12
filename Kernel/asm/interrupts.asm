@@ -1,4 +1,4 @@
-﻿
+
 GLOBAL _cli
 GLOBAL _sti
 GLOBAL _save_irq
@@ -283,11 +283,11 @@ _yield:
 	ret
 
 SECTION .bss
-	aux resq 1
-	
+	aux: resq 1
+
 	; Buffer para el snapshot cuando se presiona ESC
-	user_snapshot resq 20
-	
+	user_snapshot: resq 20
+
 	; Flags de control
-	esc_pressed resb 1   
-	snapshot_ready resb 1  
+	esc_pressed: resb 1
+	snapshot_ready: resb 1

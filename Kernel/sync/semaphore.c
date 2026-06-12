@@ -221,6 +221,7 @@ int sem_wait(const char *name) {
     int idx;
     semaphore_t *sem;
     int my_pid;
+    int woken = 0;   // 0 = recien llegue; 1 = me desperto un sem_post (ya fui elegido)
 
     if (!valid_name(name)) {
         return -1;
@@ -244,8 +245,19 @@ int sem_wait(const char *name) {
         }
 
         sem = &sem_table[idx];
-        if (sem->value > 0) {
+
+        /* Regla ANTI-BARGING (semaforo justo): un recien llegado (woken==0) solo
+         * se queda con el token si NO hay nadie esperando en la cola. Si hay
+         * esperantes, NO se cuela: se encola y respeta el orden justo (vtime/FIFO
+         * que aplica dequeue_best_waiter). Sin esta regla, el proceso de menor PID
+         * -que el scheduler corre primero cada tick- ganaba siempre la carrera del
+         * fast-path y le robaba el token al que sem_post acababa de despertar desde
+         * la cola, monopolizando la salida (en mvar, un lector imprimia ~4x mas).
+         * En cambio, si a MI me desperto un sem_post (woken==1), el token es mio: lo
+         * tomo aunque queden otros en cola, porque ya fui el elegido. */
+        if (sem->value > 0 && (woken || sem->wait_count == 0)) {
             sem->value--;
+            process_sem_held_push(my_pid, idx);  // registra el token para devolverlo si muere
             _sti();
             return 0;
         }
@@ -264,10 +276,13 @@ int sem_wait(const char *name) {
         _sti();
         _yield();
 
-        /* Despertamos. Nos sacamos de la cola (sem_post ya nos dequeueo, pero
-         * tambien podrian habernos despertado con 'block/unblock') y el bucle
-         * reintenta tomar value. Si otro lo gano, value sera 0 y nos volvemos
-         * a bloquear: no hay busy-wait porque cada vuelta hace _yield. */
+        /* Despertamos: sem_post nos eligio (dequeue_best_waiter) y nos cobro el
+         * vtime. Marcamos woken=1 para tener prioridad sobre los recien llegados al
+         * reintentar tomar el token. Nos sacamos de la cola por las dudas (tambien
+         * podrian habernos despertado con block/unblock directo). El token vive en
+         * value, asi que si nos mataron recien despiertos no se pierde: lo toma el
+         * proximo. */
+        woken = 1;
         _cli();
         idx = find_semaphore(name);
         if (idx >= 0) {
@@ -293,6 +308,7 @@ int sem_post(const char *name) {
     }
 
     sem = &sem_table[idx];
+    process_sem_held_release(process_get_current_pid(), idx);  // ya no debo este token
     sem->value++;   /* el token queda en value, no se entrega "en mano" */
 
     /* Despierta a un esperante para que reintente. Saltea pids muertos (no
@@ -312,6 +328,37 @@ int sem_post(const char *name) {
             return -1;
         }
         sem = &sem_table[idx];
+    }
+
+    _sti();
+    return 0;
+}
+
+// Postea un semaforo por indice, sin tocar el tracking de tokens (lo usa
+// process.c al morir un proceso para devolver lo que tenia tomado). Misma
+// logica de despertar esperantes que sem_post.
+int sem_force_post_index(int sem_idx) {
+    _cli();
+    if (sem_idx < 0 || sem_idx >= MAX_SEMAPHORES || !sem_table[sem_idx].in_use) {
+        _sti();
+        return -1;
+    }
+
+    semaphore_t *sem = &sem_table[sem_idx];
+    sem->value++;
+
+    while (sem->wait_count > 0) {
+        int pid = dequeue_best_waiter(sem);
+        _sti();
+        if (process_unblock(pid) == 0) {
+            return 0;
+        }
+        _cli();
+        if (!sem_table[sem_idx].in_use) {
+            _sti();
+            return -1;
+        }
+        sem = &sem_table[sem_idx];
     }
 
     _sti();

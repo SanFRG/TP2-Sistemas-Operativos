@@ -18,6 +18,7 @@ static int current_pid = -1;
 static int idle_pid = -1;
 
 static void clear_pcb_slot(PCB *p);
+static void process_release_held_sems(PCB *p);
 static void idle_process(void *arg);
 static void clean_orphan(void);
 static void init_standard_fds(PCB *p);
@@ -58,6 +59,7 @@ static void init_process_common(PCB *p, const char *name, int foreground, int pr
     p->base_pointer = NULL;
     p->sched_credits = weight_for(p);   // arranca con una ronda completa
     p->sched_vtime = 0;
+    p->sem_held_count = 0;
     p->next = NULL;
 }
 
@@ -149,6 +151,7 @@ static void terminate_children(int parent_pid) {
             p->exit_code = -1;
             p->kill_pending = 0;
             sem_remove_waiter(p->pid);
+            process_release_held_sems(p);  // devuelve tokens que tuviera tomados
             terminate_children(p->pid);   // cascada a los nietos
         } else {
             // READY / RUNNING: muere cooperativamente en su proximo syscall.
@@ -201,6 +204,7 @@ static void clear_pcb_slot(PCB *p) {
     p->base_pointer = NULL;
     p->sched_credits = 0;
     p->sched_vtime = 0;
+    p->sem_held_count = 0;
     p->next = NULL;
 }
 
@@ -254,6 +258,7 @@ int process_kill(int pid) {
     p->exit_code = -1;
     p->kill_pending = 0;
     sem_remove_waiter(pid);   // ya protege su seccion critica con _cli/_sti
+    process_release_held_sems(p);  // devuelve tokens que tuviera tomados
     terminate_children(p->pid);  // sus hijos vivos mueren con el
     wake_parent_if_waiting(p);
 
@@ -351,6 +356,56 @@ void process_charge_vtime(int pid) {
     p->sched_vtime += (uint64_t)(9 / weight_for(p));
 }
 
+// --- Tracking de tokens de semaforo en posesion (anti-deadlock al matar) ---
+
+void process_sem_held_push(int pid, int sem_idx) {
+    PCB *p = get_process_by_pid(pid);
+    if (p == NULL || p->sem_held_count >= PROC_MAX_HELD_SEMS) {
+        return;  // best-effort: si se llena, ese token no se trackea
+    }
+    p->sem_held[p->sem_held_count++] = sem_idx;
+}
+
+void process_sem_held_release(int pid, int sem_idx) {
+    PCB *p = get_process_by_pid(pid);
+    if (p == NULL || p->sem_held_count <= 0) {
+        return;
+    }
+    // Busca desde el tope el token que coincide con sem_idx (caso mutex y
+    // locks anidados liberados fuera de orden). Si no hay coincidencia, saca el
+    // tope: en productor/consumidor se hace wait de un semaforo y post de otro,
+    // y ese post "descarga" el slot que se tenia tomado (p. ej. mvar).
+    int pos = -1;
+    for (int i = p->sem_held_count - 1; i >= 0; i--) {
+        if (p->sem_held[i] == sem_idx) {
+            pos = i;
+            break;
+        }
+    }
+    if (pos < 0) {
+        pos = p->sem_held_count - 1;  // sin coincidencia: descarga el tope (LIFO)
+    }
+    // compacta sacando la entrada en 'pos'
+    for (int i = pos; i < p->sem_held_count - 1; i++) {
+        p->sem_held[i] = p->sem_held[i + 1];
+    }
+    p->sem_held_count--;
+}
+
+// Devuelve (postea) todos los tokens que el proceso tenia tomados y no
+// devolvio. Se llama al morir, para restaurar la invariante de los semaforos y
+// que el resto de los procesos no quede en deadlock. Llamar con interrupciones
+// deshabilitadas o en contexto seguro; sem_force_post_index ya hace _cli/_sti.
+static void process_release_held_sems(PCB *p) {
+    if (p == NULL) {
+        return;
+    }
+    while (p->sem_held_count > 0) {
+        int idx = p->sem_held[--p->sem_held_count];
+        sem_force_post_index(idx);
+    }
+}
+
 int process_wait(int pid) {
     PCB *child = get_process_by_pid(pid);
     PCB *me = get_process_by_pid(current_pid);
@@ -424,6 +479,7 @@ void process_exit(int exit_code) {
         }
         pipe_on_process_exit(me->fd[0], me->fd[1], me->fd[2]);
         sem_remove_waiter(me->pid);
+        process_release_held_sems(me);  // devuelve tokens tomados sin liberar
         me->state = TERMINATED;
         me->exit_code = exit_code;
         me->kill_pending = 0;
@@ -440,9 +496,18 @@ void process_exit(int exit_code) {
 
 void process_exit_if_kill_pending(void) {
     PCB *me = get_process_by_pid(current_pid);
-    if (me != NULL && me->kill_pending) {
-        process_exit(-1);
+    if (me == NULL || !me->kill_pending) {
+        return;
     }
+    // Si el proceso tiene un token de semaforo tomado, posponer la muerte: que
+    // termine su seccion critica y lo devuelva con sem_post antes de morir. Asi
+    // no se pierde el token y no se deadlockea al resto (clave para mvar). Las
+    // secciones criticas no se bloquean con un token en mano, asi que llega
+    // enseguida al checkpoint siguiente con sem_held_count == 0 y muere limpio.
+    if (me->sem_held_count > 0) {
+        return;
+    }
+    process_exit(-1);
 }
 
 int process_current_kill_pending(void) {
