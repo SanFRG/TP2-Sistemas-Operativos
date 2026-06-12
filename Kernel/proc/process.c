@@ -1,4 +1,5 @@
 ﻿#include "process.h"
+#include "process_internal.h"
 #include "memoryManager.h"
 #include "lib.h"
 #include "interrupts.h"
@@ -9,20 +10,20 @@
 
 #define STACK_SIZE 16384
 
-static PCB process_table[MAX_PROCESSES];//TODO:ver si mas adelante nos conviene cambiar a otra estructura
+// Definidos aca pero compartidos con scheduler.c via process_internal.h.
+PCB process_table[MAX_PROCESSES];//TODO:ver si mas adelante nos conviene cambiar a otra estructura
 static int next_pid = 1; //0 lo dejamos como valor vacio/no asignado para el boot y etc
-static int current_pid = -1;
+int current_pid = -1;
 
 // PID del proceso idle. Solo corre cuando no hay ningun otro proceso READY,
 // asi el scheduler siempre tiene algo para elegir.
-static int idle_pid = -1;
+int idle_pid = -1;
 
 static void clear_pcb_slot(PCB *p);
 static void process_release_held_sems(PCB *p);
 static void idle_process(void *arg);
 static void clean_orphan(void);
 static void init_standard_fds(PCB *p);
-static int weight_for(PCB *p);
 
 static int generate_pid(void) {
     return next_pid++;
@@ -69,7 +70,7 @@ static void init_standard_fds(PCB *p) {
     p->fd[2] = 2;  // stderr
 }
 
-static PCB *get_process_by_pid(int pid) {
+PCB *get_process_by_pid(int pid) {
     if (pid <= 0) {
         return NULL;
     }
@@ -220,24 +221,6 @@ int pcb_set_current(const char *name, int foreground, int priority, int parent_p
     return p->pid;
 }
 
-int process_get_current_pid(void) {
-    return current_pid;
-}
-
-int process_get_current_fd(int fd_index) {
-    if (fd_index < 0 || fd_index >= 3) return -1;
-    PCB *p = get_process_by_pid(current_pid);
-    if (p == NULL) return -1;
-    return p->fd[fd_index];
-}
-
-int process_get_fd(int pid, int fd_index) {
-    if (fd_index < 0 || fd_index >= 3) return -1;
-    PCB *p = get_process_by_pid(pid);
-    if (p == NULL) return -1;
-    return p->fd[fd_index];
-}
-
 int process_kill(int pid) {
     PCB *p = get_process_by_pid(pid);
     if (p == NULL || p->state == KILLED || p->state == TERMINATED) {
@@ -269,91 +252,6 @@ int process_kill(int pid) {
     clean_orphan();
     _restore_irq(flags);
     return 0;
-}
-
-int process_block(int pid) {
-    PCB *p = get_process_by_pid(pid);
-    if (p == NULL || pid == idle_pid) {  // al idle no se lo bloquea
-        return -1;
-    }
-    // Solo se puede bloquear algo que corre o esta listo para correr.
-    // Ya BLOCKED / KILLED / TERMINATED -> no hay nada que hacer.
-    if (p->state != READY && p->state != RUNNING) {
-        return -1;
-    }
-
-    p->state = BLOCKED;
-
-    if (pid == current_pid) {
-        _yield();   // si me bloquee a mi mismo, cedo el CPU ya mismo
-    }
-    return 0;
-}
-
-int process_block_current(void) {
-    PCB *p = get_process_by_pid(current_pid);
-    if (p == NULL || current_pid == idle_pid) {
-        return -1;
-    }
-    if (p->state != READY && p->state != RUNNING) {
-        return -1;
-    }
-    p->state = BLOCKED;
-    return 0;
-}
-
-int process_unblock(int pid) {
-    PCB *p = get_process_by_pid(pid);
-    if (p == NULL || p->state != BLOCKED) {
-        return -1;
-    }
-    p->state = READY;
-    return 0;
-}
-
-int process_set_priority(int pid, int new_priority) {
-    PCB *p = get_process_by_pid(pid);
-    if (p == NULL || p->state == KILLED) {
-        return -1;
-    }
-    if (new_priority < MIN_PRIORITY) {
-        new_priority = MIN_PRIORITY;
-    } else if (new_priority > MAX_PRIORITY) {
-        new_priority = MAX_PRIORITY;
-    }
-    p->priority = new_priority;
-    // Reflejar el nuevo peso ya mismo: le damos una ronda completa con la
-    // prioridad recien seteada para que el efecto se vea sin esperar al
-    // proximo refill.
-    p->sched_credits = weight_for(p);
-    return 0;
-}
-
-int process_get_priority(int pid) {
-    PCB *p = get_process_by_pid(pid);
-    if (p == NULL) {
-        return -1;
-    }
-    return p->priority;
-}
-
-uint64_t process_get_vtime(int pid) {
-    PCB *p = get_process_by_pid(pid);
-    if (p == NULL) {
-        return ~0ULL;   // inexistente: vtime maximo -> nunca es el minimo
-    }
-    return p->sched_vtime;
-}
-
-void process_charge_vtime(int pid) {
-    PCB *p = get_process_by_pid(pid);
-    if (p == NULL) {
-        return;
-    }
-    // Avance = 9/peso. Con pesos {1,3,9} da {9,3,1}: a mayor prioridad, menor
-    // avance -> el vtime crece mas lento -> es elegido mas seguido. El 9 es el
-    // peso maximo, asi que el avance minimo es 1 (sin division por cero).
-    p->sched_vtime += (uint64_t)(9 / weight_for(p));
 }
 
 // --- Tracking de tokens de semaforo en posesion (anti-deadlock al matar) ---
@@ -579,12 +477,6 @@ int process_create(const char *name, void (*function)(void *), void *arg, int pr
     return new_pid;
 }
 
-uint64_t process_loop_inc(void) { 
-    PCB *me = get_process_by_pid(current_pid);
-    if (me == NULL) return -1;
-    return ++me->loop_counter;
-}
-
 int process_create_with_fds(const char *name, void (*fn)(void *), void *arg,
                              int priority, int foreground, int fd_in, int fd_out) {
     uint64_t flags;
@@ -629,111 +521,14 @@ int process_create_with_fds(const char *name, void (*fn)(void *), void *arg,
     return new_pid;
 }
 
-/* ============== Scheduler (Round Robin ponderado por prioridad) ==============
- *
- * La prioridad decide CON QUE FRECUENCIA se elige un proceso, no cuanto corre
- * seguido. Cada proceso recibe, por ronda, una cantidad de "creditos" (turnos)
- * igual a su peso: {1, 3, 9} segun prioridad 0/1/2. En cada tick del timer se
- * elige -en orden circular- un proceso READY que aun tenga creditos y se corre
- * un tick; al elegirlo se le descuenta un credito. Cuando ningun READY tiene
- * creditos, se recargan todos (nueva ronda).
- *
- * Por que asi y no con quantum mas largo: un proceso que se BLOQUEA antes de
- * agotar su quantum (p. ej. los writers de mvar, que escriben y se duermen en
- * el semaforo) no saca ningun provecho de un quantum largo: cede el CPU
- * enseguida igual. Lo unico que lo hace "aparecer" mas seguido es ser ELEGIDO
- * mas veces. Ponderar la frecuencia logra eso de forma independiente del
- * hardware y de cuanto dure el busy-wait. Para procesos CPU-bound (test_prio)
- * el efecto es el mismo de siempre: a mayor prioridad, mas CPU, termina antes.
- */
-
-// Indice en process_table del proceso que corrio ultimo (punto de partida
-// para la busqueda circular del round robin).
-static int last_index = 0;
-
 // Peso (turnos por ronda) que le corresponde a un proceso segun su prioridad.
 // No lineal a proposito: la prioridad maxima recibe 3x los turnos de la media
-// y 9x los de la minima, para que la diferencia se note con claridad.
-static int weight_for(PCB *p) {
+// y 9x los de la minima, para que la diferencia se note con claridad. Lo usan
+// la inicializacion/seteo de prioridad de aca y el scheduler (scheduler.c).
+int weight_for(PCB *p) {
     static const int weight_table[MAX_PRIORITY + 1] = {1, 3, 9};
     int prio = p->priority;
     if (prio < MIN_PRIORITY) prio = MIN_PRIORITY;
     if (prio > MAX_PRIORITY) prio = MAX_PRIORITY;
     return weight_table[prio];
-}
-
-// Recarga los creditos de todos los procesos vivos segun su peso (nueva ronda).
-static void refill_credits(void) {
-    for (int i = 0; i < MAX_PROCESSES; i++) {
-        PCB *p = &process_table[i];
-        if (p->pid != 0 && p->pid != idle_pid) {
-            p->sched_credits = weight_for(p);
-        }
-    }
-}
-
-// Devuelve el indice del proximo proceso READY con creditos, recorriendo la
-// tabla de forma circular desde el que corrio ultimo. Si nadie tiene creditos
-// pero hay procesos READY, recarga (nueva ronda) y reintenta. -1 si no hay
-// ningun proceso normal listo.
-static int pick_next_ready(void) {
-    for (int pass = 0; pass < 2; pass++) {
-        for (int offset = 1; offset <= MAX_PROCESSES; offset++) {
-            int idx = (last_index + offset) % MAX_PROCESSES;
-            PCB *p = &process_table[idx];
-            // El idle se ignora aca: solo se elige como ultimo recurso.
-            if (p->pid != 0 && p->pid != idle_pid && p->state == READY &&
-                p->sched_credits > 0) {
-                return idx;
-            }
-        }
-        // Nadie listo con creditos: arrancar una ronda nueva y reintentar.
-        refill_credits();
-    }
-    return -1;
-}
-
-// Llamada desde el handler del timer (IRQ0) en interrupts.asm.
-// Recibe el rsp del proceso interrumpido (que apunta a su contexto ya
-// guardado en el stack) y devuelve el rsp del proximo proceso a correr.
-void *scheduler_switch(void *current_rsp) {
-    PCB *current = get_process_by_pid(current_pid);
-
-    // NOTA: la recoleccion de huerfanos (clean_orphan) NO se hace aca. Antes se
-    // llamaba en cada tick, pero liberar memoria (mm_free) y limpiar slots desde
-    // el contexto de interrupcion se pisaba con las operaciones de proceso
-    // (create/kill/wait) y corrompia el heap/tabla -> #GP. Ahora se reapean los
-    // huerfanos en contexto de proceso (process_kill / process_create), de forma
-    // atomica con irqsave.
-
-    // 1. Guardar el contexto del proceso actual y devolverlo a la cola de
-    //    listos si seguia corriendo (cada turno dura un tick).
-    if (current != NULL) {
-        current->stack_pointer = current_rsp;
-        if (current->state == RUNNING) {
-            current->state = READY;
-        }
-    }
-
-    // 2. Elegir el proximo proceso READY con creditos (round robin ponderado).
-    int idx = pick_next_ready();
-    if (idx < 0) {
-        // No hay ningun proceso normal listo: corre el proceso idle.
-        PCB *idle = get_process_by_pid(idle_pid);
-        if (idle != NULL) {
-            idle->state = RUNNING;
-            current_pid = idle_pid;
-            return idle->stack_pointer;
-        }
-        // Caso degenerado: ni siquiera existe el idle.
-        return current_rsp;
-    }
-
-    // 3. Activar al elegido y consumirle un turno de la ronda.
-    PCB *next = &process_table[idx];
-    next->state = RUNNING;
-    next->sched_credits--;
-    last_index = idx;
-    current_pid = next->pid;
-    return next->stack_pointer;
 }
