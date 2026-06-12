@@ -77,15 +77,42 @@ static int enqueue_waiter(semaphore_t *sem, int pid) {
     return 0;
 }
 
-static int dequeue_waiter(semaphore_t *sem) {
-    int pid;
+static int remove_waiter_from_sem(semaphore_t *sem, int pid);
+
+// Elige a quien despertar con weighted fair queueing por tiempo virtual:
+// saca de la cola al esperante con MENOR vtime (a igual vtime, el que llego
+// primero -> FIFO) y le cobra el avance de vtime segun su peso. Como el avance
+// es 9/peso, los de mayor prioridad acumulan vtime mas lento y por ende son
+// elegidos mas seguido, pero de forma PROPORCIONAL: con pesos {3,3} se turnan
+// (ABAB), con {9,3} el de peso 9 sale ~3 de cada 4 veces (ABBB) sin que el
+// otro sufra starvation. Esto es lo que hace que subir la prioridad de un
+// writer en mvar lo haga aparecer mas, sin monopolizar la salida.
+static int dequeue_best_waiter(semaphore_t *sem) {
+    int best_pid;
+    uint64_t best_vtime;
+
     if (sem->wait_count <= 0) {
         return -1;
     }
-    pid = sem->waiters[sem->wait_head];
-    sem->wait_head = (sem->wait_head + 1) % MAX_WAITERS;
-    sem->wait_count--;
-    return pid;
+
+    best_pid = sem->waiters[sem->wait_head];
+    best_vtime = process_get_vtime(best_pid);
+    for (int i = 1; i < sem->wait_count; i++) {
+        int pos = (sem->wait_head + i) % MAX_WAITERS;
+        int pid = sem->waiters[pos];
+        uint64_t vtime = process_get_vtime(pid);
+        if (vtime < best_vtime) {   // estricto: a igual vtime gana el de mas atras (FIFO)
+            best_vtime = vtime;
+            best_pid = pid;
+        }
+    }
+
+    process_charge_vtime(best_pid);   // avanza su vtime segun el peso/prioridad
+
+    // remove_waiter_from_sem compacta la cola y saca a best_pid (aparece una
+    // sola vez). Reusa la logica ya probada en lugar de mover indices a mano.
+    remove_waiter_from_sem(sem, best_pid);
+    return best_pid;
 }
 
 static int remove_waiter_from_sem(semaphore_t *sem, int pid) {
@@ -273,7 +300,7 @@ int sem_post(const char *name) {
      * dudas). value queda incrementado: si nadie lo toma ahora, lo tomara el
      * proximo sem_wait. */
     while (sem->wait_count > 0) {
-        int pid = dequeue_waiter(sem);
+        int pid = dequeue_best_waiter(sem);
         _sti();
         if (process_unblock(pid) == 0) {
             return 0;

@@ -21,6 +21,7 @@ static void clear_pcb_slot(PCB *p);
 static void idle_process(void *arg);
 static void clean_orphan(void);
 static void init_standard_fds(PCB *p);
+static int weight_for(PCB *p);
 
 static int generate_pid(void) {
     return next_pid++;
@@ -55,6 +56,8 @@ static void init_process_common(PCB *p, const char *name, int foreground, int pr
     p->stack_base = NULL;
     p->stack_pointer = NULL;
     p->base_pointer = NULL;
+    p->sched_credits = weight_for(p);   // arranca con una ronda completa
+    p->sched_vtime = 0;
     p->next = NULL;
 }
 
@@ -196,6 +199,8 @@ static void clear_pcb_slot(PCB *p) {
     p->kill_pending = 0;
     p->loop_counter = 0;
     p->base_pointer = NULL;
+    p->sched_credits = 0;
+    p->sched_vtime = 0;
     p->next = NULL;
 }
 
@@ -312,7 +317,38 @@ int process_set_priority(int pid, int new_priority) {
         new_priority = MAX_PRIORITY;
     }
     p->priority = new_priority;
+    // Reflejar el nuevo peso ya mismo: le damos una ronda completa con la
+    // prioridad recien seteada para que el efecto se vea sin esperar al
+    // proximo refill.
+    p->sched_credits = weight_for(p);
     return 0;
+}
+
+int process_get_priority(int pid) {
+    PCB *p = get_process_by_pid(pid);
+    if (p == NULL) {
+        return -1;
+    }
+    return p->priority;
+}
+
+uint64_t process_get_vtime(int pid) {
+    PCB *p = get_process_by_pid(pid);
+    if (p == NULL) {
+        return ~0ULL;   // inexistente: vtime maximo -> nunca es el minimo
+    }
+    return p->sched_vtime;
+}
+
+void process_charge_vtime(int pid) {
+    PCB *p = get_process_by_pid(pid);
+    if (p == NULL) {
+        return;
+    }
+    // Avance = 9/peso. Con pesos {1,3,9} da {9,3,1}: a mayor prioridad, menor
+    // avance -> el vtime crece mas lento -> es elegido mas seguido. El 9 es el
+    // peso maximo, asi que el avance minimo es 1 (sin division por cero).
+    p->sched_vtime += (uint64_t)(9 / weight_for(p));
 }
 
 int process_wait(int pid) {
@@ -528,39 +564,66 @@ int process_create_with_fds(const char *name, void (*fn)(void *), void *arg,
     return new_pid;
 }
 
-/* ================= Scheduler (Round Robin con prioridades) =================
+/* ============== Scheduler (Round Robin ponderado por prioridad) ==============
  *
- * Se recorre la tabla de procesos de forma circular (eso garantiza que
- * ningun proceso sufra starvation: a todos les toca turno en cada vuelta).
- * La prioridad no decide QUIEN corre, sino CUANTO corre: cada proceso
- * recibe (prioridad + 1) ticks del timer por turno.
+ * La prioridad decide CON QUE FRECUENCIA se elige un proceso, no cuanto corre
+ * seguido. Cada proceso recibe, por ronda, una cantidad de "creditos" (turnos)
+ * igual a su peso: {1, 3, 9} segun prioridad 0/1/2. En cada tick del timer se
+ * elige -en orden circular- un proceso READY que aun tenga creditos y se corre
+ * un tick; al elegirlo se le descuenta un credito. Cuando ningun READY tiene
+ * creditos, se recargan todos (nueva ronda).
+ *
+ * Por que asi y no con quantum mas largo: un proceso que se BLOQUEA antes de
+ * agotar su quantum (p. ej. los writers de mvar, que escriben y se duermen en
+ * el semaforo) no saca ningun provecho de un quantum largo: cede el CPU
+ * enseguida igual. Lo unico que lo hace "aparecer" mas seguido es ser ELEGIDO
+ * mas veces. Ponderar la frecuencia logra eso de forma independiente del
+ * hardware y de cuanto dure el busy-wait. Para procesos CPU-bound (test_prio)
+ * el efecto es el mismo de siempre: a mayor prioridad, mas CPU, termina antes.
  */
 
 // Indice en process_table del proceso que corrio ultimo (punto de partida
 // para la busqueda circular del round robin).
 static int last_index = 0;
 
-// Ticks de timer que le quedan al proceso actual en su turno.
-static int current_quantum = 0;
-
-// Cantidad de ticks que le corresponde a un proceso segun su prioridad.
-static int quantum_for(PCB *p) {
+// Peso (turnos por ronda) que le corresponde a un proceso segun su prioridad.
+// No lineal a proposito: la prioridad maxima recibe 3x los turnos de la media
+// y 9x los de la minima, para que la diferencia se note con claridad.
+static int weight_for(PCB *p) {
+    static const int weight_table[MAX_PRIORITY + 1] = {1, 3, 9};
     int prio = p->priority;
     if (prio < MIN_PRIORITY) prio = MIN_PRIORITY;
     if (prio > MAX_PRIORITY) prio = MAX_PRIORITY;
-    return prio + 1;
+    return weight_table[prio];
 }
 
-// Devuelve el indice del proximo proceso READY recorriendo la tabla de
-// forma circular a partir del que corrio ultimo. -1 si no hay ninguno.
-static int pick_next_ready(void) {
-    for (int offset = 1; offset <= MAX_PROCESSES; offset++) {
-        int idx = (last_index + offset) % MAX_PROCESSES;
-        PCB *p = &process_table[idx];
-        // El idle se ignora aca: solo se elige como ultimo recurso.
-        if (p->pid != 0 && p->pid != idle_pid && p->state == READY) {
-            return idx;
+// Recarga los creditos de todos los procesos vivos segun su peso (nueva ronda).
+static void refill_credits(void) {
+    for (int i = 0; i < MAX_PROCESSES; i++) {
+        PCB *p = &process_table[i];
+        if (p->pid != 0 && p->pid != idle_pid) {
+            p->sched_credits = weight_for(p);
         }
+    }
+}
+
+// Devuelve el indice del proximo proceso READY con creditos, recorriendo la
+// tabla de forma circular desde el que corrio ultimo. Si nadie tiene creditos
+// pero hay procesos READY, recarga (nueva ronda) y reintenta. -1 si no hay
+// ningun proceso normal listo.
+static int pick_next_ready(void) {
+    for (int pass = 0; pass < 2; pass++) {
+        for (int offset = 1; offset <= MAX_PROCESSES; offset++) {
+            int idx = (last_index + offset) % MAX_PROCESSES;
+            PCB *p = &process_table[idx];
+            // El idle se ignora aca: solo se elige como ultimo recurso.
+            if (p->pid != 0 && p->pid != idle_pid && p->state == READY &&
+                p->sched_credits > 0) {
+                return idx;
+            }
+        }
+        // Nadie listo con creditos: arrancar una ronda nueva y reintentar.
+        refill_credits();
     }
     return -1;
 }
@@ -578,25 +641,16 @@ void *scheduler_switch(void *current_rsp) {
     // huerfanos en contexto de proceso (process_kill / process_create), de forma
     // atomica con irqsave.
 
-    // 1. Guardar siempre el contexto del proceso actual.
+    // 1. Guardar el contexto del proceso actual y devolverlo a la cola de
+    //    listos si seguia corriendo (cada turno dura un tick).
     if (current != NULL) {
         current->stack_pointer = current_rsp;
+        if (current->state == RUNNING) {
+            current->state = READY;
+        }
     }
 
-    // 2. Si el proceso actual sigue RUNNING y todavia le queda quantum,
-    //    lo dejamos seguir: no hay cambio de contexto en este tick.
-    if (current != NULL && current->state == RUNNING && current_quantum > 1) {
-        current_quantum--;
-        return current_rsp;
-    }
-
-    // 3. Se agoto el quantum (o el proceso se bloqueo / murio): hay que
-    //    rotar. Si seguia RUNNING, vuelve a la cola de listos.
-    if (current != NULL && current->state == RUNNING) {
-        current->state = READY;
-    }
-
-    // 4. Elegir el proximo proceso READY (round robin circular).
+    // 2. Elegir el proximo proceso READY con creditos (round robin ponderado).
     int idx = pick_next_ready();
     if (idx < 0) {
         // No hay ningun proceso normal listo: corre el proceso idle.
@@ -604,18 +658,17 @@ void *scheduler_switch(void *current_rsp) {
         if (idle != NULL) {
             idle->state = RUNNING;
             current_pid = idle_pid;
-            current_quantum = quantum_for(idle);
             return idle->stack_pointer;
         }
         // Caso degenerado: ni siquiera existe el idle.
         return current_rsp;
     }
 
-    // 5. Activar al elegido y asignarle su quantum segun la prioridad.
+    // 3. Activar al elegido y consumirle un turno de la ronda.
     PCB *next = &process_table[idx];
     next->state = RUNNING;
+    next->sched_credits--;
     last_index = idx;
     current_pid = next->pid;
-    current_quantum = quantum_for(next);
     return next->stack_pointer;
 }

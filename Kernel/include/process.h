@@ -7,7 +7,7 @@
 #define MAX_PROCESSES 64
 
 // Rango de prioridades del scheduler. Mayor numero = mas prioridad =
-// mas ticks de CPU por turno.
+// elegido con mas frecuencia por el scheduler (mas turnos por ronda).
 #define MIN_PRIORITY 0
 #define MAX_PRIORITY 2
 #define DEFAULT_PRIORITY 1
@@ -30,6 +30,8 @@ typedef struct PCB {
     int waiting_for_pid;   // PID del hijo que este proceso espera con wait (0 = ninguno)
     int kill_pending;
     void *base_pointer;
+    int sched_credits;       // turnos restantes en la ronda actual (weighted RR)
+    uint64_t sched_vtime;    // tiempo virtual para wakeup justo ponderado de semaforos
     struct PCB *next;
 } PCB;
 
@@ -56,6 +58,15 @@ int process_block(int pid);
 int process_block_current(void);  // Usado por semaforos para dormir al proceso actual
 int process_unblock(int pid);
 int process_set_priority(int pid, int new_priority);
+int process_get_priority(int pid);   // -1 si el pid no existe
+
+// Tiempo virtual para wakeup justo ponderado (weighted fair queueing) en los
+// semaforos. process_get_vtime devuelve el vtime actual del proceso (un valor
+// muy grande si el pid no existe, para que nunca sea elegido). process_charge_vtime
+// avanza el vtime del proceso en 9/peso, de modo que a mayor prioridad avanza
+// mas lento y por ende es despertado mas seguido (pero sin monopolizar).
+uint64_t process_get_vtime(int pid);
+void process_charge_vtime(int pid);
 int process_wait(int pid);
 int process_list(process_info *buffer, uint64_t max_entries);
 int process_create(const char *name, void (*function)(void *), void *arg, int priority, int foreground);

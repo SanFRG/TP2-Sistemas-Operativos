@@ -30,13 +30,39 @@ static uint32_t mvar_rng(uint32_t *state) {
     return *state;
 }
 
-/* Espera activa de duracion aleatoria, para simular trabajo. */
-static void mvar_busy_random(uint32_t *state) {
-    uint32_t n = (mvar_rng(state) % 300000U) + 100000U;
+/* Espera activa de duracion aleatoria, para simular trabajo. `base` y `range`
+ * controlan la magnitud (en iteraciones): la espera dura entre base y
+ * base+range.
+ *
+ * La asimetria es a proposito y es clave para que la prioridad se vea:
+ *   - Los WRITERS usan una espera CORTA: asi, despues de escribir, el writer
+ *     vuelve a encolarse en `empty` rapido. De este modo, cada vez que se
+ *     libera la MVar, normalmente estan LOS DOS writers esperando en la cola
+ *     del semaforo, y ahi es donde la prioridad decide quien escribe
+ *     (dequeue_best_waiter despierta al de mayor prioridad).
+ *   - El READER usa una espera LARGA: marca el ritmo (es el cuello de botella),
+ *     dando tiempo a que ambos writers terminen su espera corta y se encolen
+ *     antes del proximo post de `empty`.
+ *
+ * Con prioridades iguales la cola despierta FIFO -> alternancia justa (ABAB).
+ * Subiendole la prioridad a un writer, ese gana la cola -> aparece mas (ABBB).
+ * Lo que importa es la RELACION reader >> writer, no los valores absolutos,
+ * asi que es razonablemente independiente de la velocidad del hardware. */
+static void mvar_busy_random(uint32_t *state, uint32_t base, uint32_t range) {
+    uint32_t n = (mvar_rng(state) % range) + base;
     for (volatile uint32_t k = 0; k < n; k++) {
         /* nada: solo quemar CPU */
     }
 }
+
+/* Relacion reader/writer ~3-4x: lo bastante para que ambos writers casi
+ * siempre esten encolados (prioridad igual -> ABAB justo), pero con suficiente
+ * azar para que, al subir la prioridad de uno, el otro siga apareciendo a
+ * veces (ABBB, no BBBB con starvation). */
+#define MVAR_WRITER_BASE   150000U     /* espera corta: el writer re-encola rapido */
+#define MVAR_WRITER_RANGE  200000U
+#define MVAR_READER_BASE   600000U     /* espera larga: el reader marca el ritmo */
+#define MVAR_READER_RANGE  400000U
 
 /* arg = letra unica que escribe este escritor. */
 static void mvar_writer_entry(void *arg) {
@@ -48,7 +74,7 @@ static void mvar_writer_entry(void *arg) {
     sem_open(MVAR_FULL, 0);
 
     while (1) {
-        mvar_busy_random(&state);
+        mvar_busy_random(&state, MVAR_WRITER_BASE, MVAR_WRITER_RANGE);
         if (sem_wait(MVAR_EMPTY) != 0) {
             break;
         }
@@ -67,7 +93,7 @@ static void mvar_reader_entry(void *arg) {
     sem_open(MVAR_FULL, 0);
 
     while (1) {
-        mvar_busy_random(&state);
+        mvar_busy_random(&state, MVAR_READER_BASE, MVAR_READER_RANGE);
         if (sem_wait(MVAR_FULL) != 0) {
             break;
         }
