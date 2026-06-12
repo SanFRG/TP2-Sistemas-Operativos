@@ -17,10 +17,15 @@ static void print_welcome(void) {
 }
 
 static int foreground_is_alive(void) {
-    process_info entries[SHELL_MAX_PS_ENTRIES];
+    process_info *entries = (process_info *)mem_alloc(sizeof(process_info) * SHELL_MAX_PS_ENTRIES);
+    if (entries == 0) {
+        return 0;
+    }
+
     int count = ps(entries, SHELL_MAX_PS_ENTRIES);
 
     if (count <= 0) {
+        mem_free(entries);
         return 0;
     }
 
@@ -28,10 +33,12 @@ static int foreground_is_alive(void) {
         if (entries[i].pid == fg_pid &&
             entries[i].state != PROCESS_KILLED &&
             entries[i].state != PROCESS_TERMINATED) {
+            mem_free(entries);
             return 1;
         }
     }
 
+    mem_free(entries);
     return 0;
 }
 

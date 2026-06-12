@@ -286,6 +286,7 @@ uint64_t sys_ps(uint64_t buffer_ptr, uint64_t max_entries) {
 }
 
 uint64_t sys_yield(void) {
+    process_exit_if_kill_pending();
     _yield();
     return 0;
 }

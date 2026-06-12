@@ -7,7 +7,7 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#define STACK_SIZE 4096
+#define STACK_SIZE 16384
 
 static PCB process_table[MAX_PROCESSES];//TODO:ver si mas adelante nos conviene cambiar a otra estructura
 static int next_pid = 1; //0 lo dejamos como valor vacio/no asignado para el boot y etc
@@ -50,6 +50,7 @@ static void init_process_common(PCB *p, const char *name, int foreground, int pr
     init_standard_fds(p);
     p->exit_code = 0;
     p->waiting_for_pid = 0;
+    p->kill_pending = 0;
     p->loop_counter = 0;
     p->stack_base = NULL;
     p->stack_pointer = NULL;
@@ -157,6 +158,7 @@ static void clear_pcb_slot(PCB *p) {
     p->fd[2] = 0;
     p->exit_code = 0;
     p->waiting_for_pid = 0;
+    p->kill_pending = 0;
     p->loop_counter = 0;
     p->base_pointer = NULL;
     p->next = NULL;
@@ -194,16 +196,23 @@ int process_get_fd(int pid, int fd_index) {
 
 int process_kill(int pid) {
     PCB *p = get_process_by_pid(pid);
-    if (p == NULL || p->state == KILLED) {
+    if (p == NULL || p->state == KILLED || p->state == TERMINATED) {
         return -1;
     }
     if (pid == current_pid || pid == idle_pid) {  // el idle no se mata
         return -1;
     }
 
+    if (p->state == READY || p->state == RUNNING) {
+        p->kill_pending = 1;
+        p->exit_code = -1;
+        return 0;
+    }
+
     pipe_on_process_exit(p->fd[0], p->fd[1], p->fd[2]);
     p->state = KILLED;
     p->exit_code = -1;
+    p->kill_pending = 0;
     sem_remove_waiter(pid);   // ya protege su seccion critica con _cli/_sti
     wake_parent_if_waiting(p);
 
@@ -332,15 +341,32 @@ int process_list(process_info *buffer, uint64_t max_entries) {
 void process_exit(int exit_code) {
     PCB *me = get_process_by_pid(current_pid);
     if (me != NULL) {
+        if (me->kill_pending) {
+            exit_code = -1;
+        }
         pipe_on_process_exit(me->fd[0], me->fd[1], me->fd[2]);
+        sem_remove_waiter(me->pid);
         me->state = TERMINATED;
         me->exit_code = exit_code;
+        me->kill_pending = 0;
         wake_parent_if_waiting(me);   // si el padre esperaba, lo despierta
     }
     _yield();                 // cede el CPU; el scheduler ya no nos elige
     while (1) {               // por las dudas: no debe volver nunca
         _hlt();
     }
+}
+
+void process_exit_if_kill_pending(void) {
+    PCB *me = get_process_by_pid(current_pid);
+    if (me != NULL && me->kill_pending) {
+        process_exit(-1);
+    }
+}
+
+int process_current_kill_pending(void) {
+    PCB *me = get_process_by_pid(current_pid);
+    return me != NULL && me->kill_pending;
 }
 
 // Envoltorio con el que arranca TODO proceso. Llama a la funcion real y,

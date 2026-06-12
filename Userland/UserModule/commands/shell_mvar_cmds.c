@@ -54,6 +54,7 @@ static void mvar_writer_entry(void *arg) {
         }
         mvar_value = letter;          /* escribe en la variable vacia */
         sem_post(MVAR_FULL);          /* ahora hay valor para leer */
+        yield_cpu();
     }
 }
 
@@ -74,6 +75,7 @@ static void mvar_reader_entry(void *arg) {
         out[0] = mvar_value;          /* consume el valor (seccion critica) */
         sem_post(MVAR_EMPTY);         /* libera la MVar de inmediato */
         print(out);                   /* imprime la letra AFUERA del lock */
+        yield_cpu();
     }
 }
 

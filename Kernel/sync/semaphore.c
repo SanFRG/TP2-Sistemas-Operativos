@@ -199,7 +199,16 @@ int sem_wait(const char *name) {
         return -1;
     }
 
+    my_pid = process_get_current_pid();
+    if (my_pid <= 0) {
+        return -1;
+    }
+
     while (1) {
+        if (process_current_kill_pending()) {
+            return -1;
+        }
+
         _cli();
         idx = find_semaphore(name);
         if (idx < 0) {
@@ -214,8 +223,7 @@ int sem_wait(const char *name) {
             return 0;
         }
 
-        my_pid = process_get_current_pid();
-        if (my_pid <= 0 || enqueue_waiter(sem, my_pid) != 0) {
+        if (enqueue_waiter(sem, my_pid) != 0) {
             _sti();
             return -1;
         }

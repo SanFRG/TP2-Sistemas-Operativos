@@ -27,6 +27,10 @@ static void loop_process_entry(void *arg) {
     }
 }
 
+static process_info *alloc_ps_entries(void) {
+    return (process_info *)mem_alloc(sizeof(process_info) * SHELL_MAX_PS_ENTRIES);
+}
+
 const char *shell_process_state_name(int state) {
     switch (state) {
         case PROCESS_READY:
@@ -101,9 +105,15 @@ void cmd_ps(int argc, char *argv[]) {
     (void)argc;
     (void)argv;
 
-    process_info entries[SHELL_MAX_PS_ENTRIES];
+    process_info *entries = alloc_ps_entries();
+    if (entries == 0) {
+        println("Error: no hay memoria para listar procesos.");
+        return;
+    }
+
     int64_t count = ps(entries, SHELL_MAX_PS_ENTRIES);
     if (count < 0) {
+        mem_free(entries);
         println("Error: no se pudo listar procesos.");
         return;
     }
@@ -141,6 +151,8 @@ void cmd_ps(int argc, char *argv[]) {
         print("  ");
         println(entries[i].name);
     }
+
+    mem_free(entries);
 }
 
 void cmd_kill(int argc, char *argv[]) {
@@ -152,8 +164,12 @@ void cmd_kill(int argc, char *argv[]) {
     int pid = atoi(argv[1]);
     int my_pid = (int)getpid();
     int should_wait = 0;
-    process_info entries[SHELL_MAX_PS_ENTRIES];
-    int count = ps(entries, SHELL_MAX_PS_ENTRIES);
+    process_info *entries = alloc_ps_entries();
+    int count = -1;
+
+    if (entries != 0) {
+        count = ps(entries, SHELL_MAX_PS_ENTRIES);
+    }
 
     if (count > 0) {
         for (int i = 0; i < count; i++) {
@@ -162,6 +178,9 @@ void cmd_kill(int argc, char *argv[]) {
                 break;
             }
         }
+    }
+    if (entries != 0) {
+        mem_free(entries);
     }
 
     if (kill_process(pid) == 0) {
@@ -212,7 +231,12 @@ void cmd_block(int argc, char *argv[]) {
     }
 
     int pid = atoi(argv[1]);
-    process_info entries[SHELL_MAX_PS_ENTRIES];
+    process_info *entries = alloc_ps_entries();
+    if (entries == 0) {
+        println("Error: no hay memoria para listar procesos.");
+        return;
+    }
+
     int count = ps(entries, SHELL_MAX_PS_ENTRIES);
     int found = 0;
     int current_state = -1;
@@ -224,6 +248,8 @@ void cmd_block(int argc, char *argv[]) {
             break;
         }
     }
+
+    mem_free(entries);
 
     if (!found) {
         print("Error: proceso ");
