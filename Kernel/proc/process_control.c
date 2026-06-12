@@ -19,6 +19,14 @@ int process_get_current_fd(int fd_index) {
     return p->fd[fd_index];
 }
 
+int process_set_current_fd(int fd_index, int fd_value) {
+    if (fd_index < 0 || fd_index >= 3 || fd_value < 0) return -1;
+    PCB *p = get_process_by_pid(current_pid);
+    if (p == NULL) return -1;
+    p->fd[fd_index] = fd_value;
+    return 0;
+}
+
 int process_get_fd(int pid, int fd_index) {
     if (fd_index < 0 || fd_index >= 3) return -1;
     PCB *p = get_process_by_pid(pid);

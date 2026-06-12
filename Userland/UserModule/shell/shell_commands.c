@@ -62,6 +62,7 @@ void cmd_help(int argc, char *argv[]) {
     println("  cat               - Imprime stdin tal como lo recibe");
     println("  wc                - Cuenta la cantidad de lineas del input");
     println("  filter            - Filtra (elimina) las vocales del input");
+    println("  cat/wc/filter <p> - Usan el pipe nombrado <p>");
     println("  &                 - Ejecuta el comando en background.");
     println("  |                 - Conecta stdout de cmd1 con stdin de cmd2.");
     println("  Ctrl+C            - Mata el proceso foreground");

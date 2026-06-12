@@ -2,8 +2,17 @@
 #include <lib.h>
 
 void cmd_cat(int argc, char *argv[]) {
-    (void)argc;
-    (void)argv;
+    if (argc > 2) {
+        println("Uso: cat [pipe]");
+        return;
+    }
+    if (argc == 2) {
+        int64_t pipe_id = pipe_open_named(argv[1]);
+        if (pipe_id < 0 || set_fd(1, pipe_id) != 0) {
+            println("cat: no se pudo abrir el pipe.");
+            return;
+        }
+    }
 
     char buf[128];
     int64_t n;
@@ -17,8 +26,17 @@ void cmd_cat(int argc, char *argv[]) {
  * wc: cuenta la cantidad de lineas del input.
  */
 void cmd_wc(int argc, char *argv[]) {
-    (void)argc;
-    (void)argv;
+    if (argc > 2) {
+        println("Uso: wc [pipe]");
+        return;
+    }
+    if (argc == 2) {
+        int64_t pipe_id = pipe_open_named(argv[1]);
+        if (pipe_id < 0 || set_fd(0, pipe_id) != 0) {
+            println("wc: no se pudo abrir el pipe.");
+            return;
+        }
+    }
 
     char buf[128];
     int64_t n;
@@ -54,8 +72,17 @@ static int is_vowel(char c) {
  * filter: filtra las vocales del input (las elimina, pasa el resto).
  */
 void cmd_filter(int argc, char *argv[]) {
-    (void)argc;
-    (void)argv;
+    if (argc > 2) {
+        println("Uso: filter [pipe]");
+        return;
+    }
+    if (argc == 2) {
+        int64_t pipe_id = pipe_open_named(argv[1]);
+        if (pipe_id < 0 || set_fd(0, pipe_id) != 0) {
+            println("filter: no se pudo abrir el pipe.");
+            return;
+        }
+    }
 
     char buf[128];
     char out[128];

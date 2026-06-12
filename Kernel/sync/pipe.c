@@ -6,6 +6,7 @@
 
 typedef struct {
     uint8_t in_use;
+    char name[PIPE_NAME_LEN];
     char buf[PIPE_BUFFER_SIZE];
     int read_pos;
     int write_pos;
@@ -18,26 +19,81 @@ typedef struct {
 
 static pipe_t pipe_table[MAX_PIPES];
 
+static int str_eq(const char *a, const char *b) {
+    int i = 0;
+    if (a == 0 || b == 0) {
+        return 0;
+    }
+    while (a[i] != 0 && b[i] != 0) {
+        if (a[i] != b[i]) {
+            return 0;
+        }
+        i++;
+    }
+    return a[i] == b[i];
+}
+
+static int valid_name(const char *name) {
+    int i = 0;
+    if (name == 0 || name[0] == '\0') {
+        return 0;
+    }
+    while (name[i] != 0) {
+        if (i >= PIPE_NAME_LEN - 1) {
+            return 0;
+        }
+        i++;
+    }
+    return 1;
+}
+
+static int create_pipe_slot(const char *name) {
+    for (int i = 0; i < MAX_PIPES; i++) {
+        if (!pipe_table[i].in_use) {
+            memset(&pipe_table[i], 0, sizeof(pipe_t));
+            pipe_table[i].in_use = 1;
+            if (name != 0) {
+                strncpy(pipe_table[i].name, name, PIPE_NAME_LEN - 1);
+                pipe_table[i].name[PIPE_NAME_LEN - 1] = '\0';
+            }
+            pipe_table[i].write_open = 1;
+            pipe_table[i].read_open = 1;
+            pipe_table[i].reader_pid = -1;
+            pipe_table[i].writer_pid = -1;
+            return i + PIPE_FD_MIN;
+        }
+    }
+    return -1;
+}
+
 void pipe_system_init(void) {
     memset(pipe_table, 0, sizeof(pipe_table));
 }
 
 int pipe_create(void) {
     _cli();
+    int pipe_id = create_pipe_slot(0);
+    _sti();
+    return pipe_id;
+}
+
+int pipe_open_named(const char *name) {
+    if (!valid_name(name)) {
+        return -1;
+    }
+
+    _cli();
     for (int i = 0; i < MAX_PIPES; i++) {
-        if (!pipe_table[i].in_use) {
-            memset(&pipe_table[i], 0, sizeof(pipe_t));
-            pipe_table[i].in_use = 1;
-            pipe_table[i].write_open = 1;
-            pipe_table[i].read_open = 1;
-            pipe_table[i].reader_pid = -1;
-            pipe_table[i].writer_pid = -1;
+        if (pipe_table[i].in_use && pipe_table[i].name[0] != '\0' &&
+            str_eq(pipe_table[i].name, name)) {
             _sti();
             return i + PIPE_FD_MIN;
         }
     }
+
+    int pipe_id = create_pipe_slot(name);
     _sti();
-    return -1;
+    return pipe_id;
 }
 
 int pipe_read(int pipe_id, char *buf, int max_len) {

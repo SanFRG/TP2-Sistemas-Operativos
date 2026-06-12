@@ -58,6 +58,7 @@ void process_system_init(void);
 int pcb_set_current(const char *name, int foreground, int priority, int parent_pid);
 int process_get_current_pid(void);
 int process_get_current_fd(int fd_index);
+int process_set_current_fd(int fd_index, int fd_value);
 int process_get_fd(int pid, int fd_index);
 int process_create_with_fds(const char *name, void (*fn)(void *), void *arg, int priority, int foreground, int fd_in, int fd_out);
 int process_kill(int pid);

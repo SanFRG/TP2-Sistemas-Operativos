@@ -40,7 +40,9 @@ enum {
     SYS_CREATE_PROCESS_PIPED = 30, // Create process with custom fd_in/fd_out
     SYS_PIPE_CLOSE = 31,     // Close both ends of a pipe and free the slot
     SYS_SET_COLOR = 32,      // Set current text color (VGA attribute byte)
-    SYS_COUNT = 33
+    SYS_PIPE_OPEN_NAMED = 33, // Open/create named pipe
+    SYS_SET_FD = 34,          // Set current process fd entry
+    SYS_COUNT = 35
 };
 
 // Tabla de syscalls (array de punteros, accedida desde int 0x80)
@@ -80,5 +82,7 @@ uint64_t sys_pipe_open(void);
 uint64_t sys_create_process_piped(uint64_t args_ptr);
 uint64_t sys_pipe_close(uint64_t pipe_id);
 uint64_t sys_set_color(uint64_t attr);
+uint64_t sys_pipe_open_named(uint64_t name_ptr);
+uint64_t sys_set_fd(uint64_t fd_index, uint64_t fd_value);
 
 #endif
