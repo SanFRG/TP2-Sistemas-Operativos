@@ -7,9 +7,9 @@
  *   - Cada escritor hace una espera activa aleatoria, espera a que este vacia
  *     y escribe SU valor unico (escritor 0 -> 'A', 1 -> 'B', 2 -> 'C', ...).
  *   - Cada lector hace una espera activa aleatoria, espera a que tenga valor,
- *     lo consume e imprime la letra leida.
- * Solo el lector imprime, asi que la salida es la secuencia de letras leidas
- * (p. ej. "ABABAB"). Se sincroniza con dos semaforos:
+ *     lo consume e imprime la letra leida junto con su id.
+ * Solo el lector imprime, asi que la salida es la secuencia de valores leidos
+ * y lectores que los consumieron (p. ej. "A0 B1 A0 B1"). Se sincroniza con dos semaforos:
  *   empty (init 1): hay lugar para escribir.
  *   full  (init 0): hay un valor para leer.
  * Como empty arranca en 1, a lo sumo un proceso accede a la variable a la vez.
@@ -54,15 +54,14 @@ static void mvar_writer_entry(void *arg) {
         }
         mvar_value = letter;          /* escribe en la variable vacia */
         sem_post(MVAR_FULL);          /* ahora hay valor para leer */
-        yield_cpu();
     }
 }
 
 static void mvar_reader_entry(void *arg) {
-    (void)arg;
+    int reader_id = (int)(uint64_t)arg;
     int pid = (int)getpid();
     uint32_t state = (uint32_t)pid * 2654435761U + 7U;
-    char out[2] = {0, 0};
+    char out[4] = {0, 0, ' ', 0};
 
     sem_open(MVAR_EMPTY, 1);
     sem_open(MVAR_FULL, 0);
@@ -73,9 +72,9 @@ static void mvar_reader_entry(void *arg) {
             break;
         }
         out[0] = mvar_value;          /* consume el valor (seccion critica) */
+        out[1] = (char)('0' + reader_id);
         sem_post(MVAR_EMPTY);         /* libera la MVar de inmediato */
         print(out);                   /* imprime la letra AFUERA del lock */
-        yield_cpu();
     }
 }
 
@@ -116,7 +115,7 @@ void cmd_mvar(int argc, char *argv[]) {
     }
     for (int i = 0; i < readers; i++) {
         char rname[8] = {'m', 'v', 'a', 'r', '_', 'r', (char)('0' + i), 0};
-        if (create_process(rname, mvar_reader_entry, 0, 1, 0) < 0) {
+        if (create_process(rname, mvar_reader_entry, (void *)(uint64_t)i, 1, 0) < 0) {
             println("mvar: error creando lector.");
             return;
         }
