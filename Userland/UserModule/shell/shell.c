@@ -82,6 +82,28 @@ static int handle_foreground_process(void) {
     return 0;
 }
 
+static void reap_background_children(void) {
+    int shell_pid = (int)getpid();
+    process_info *entries = (process_info *)mem_alloc(sizeof(process_info) * SHELL_MAX_PS_ENTRIES);
+    if (entries == 0) {
+        return;
+    }
+
+    int count = ps(entries, SHELL_MAX_PS_ENTRIES);
+    if (count > 0) {
+        for (int i = 0; i < count; i++) {
+            if (entries[i].parent_pid == shell_pid &&
+                entries[i].foreground == 0 &&
+                (entries[i].state == PROCESS_TERMINATED ||
+                 entries[i].state == PROCESS_KILLED)) {
+                waitpid(entries[i].pid);
+            }
+        }
+    }
+
+    mem_free(entries);
+}
+
 void shell(void) {
     print_welcome();
 
@@ -89,6 +111,8 @@ void shell(void) {
         if (handle_foreground_process()) {
             continue;
         }
+
+        reap_background_children();
 
         print("> ");
 
@@ -107,6 +131,7 @@ void shell(void) {
             continue;
         }
 
+        reap_background_children();
         shell_execute_command();
     }
 
