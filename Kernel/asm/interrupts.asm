@@ -227,7 +227,7 @@ _irq04Handler:
 _irq05Handler:
 	irqHandlerMaster 5
 
-SYS_COUNT equ 32
+SYS_COUNT equ 33   ; debe coincidir con SYS_COUNT en syscall_dispatcher.h
 
 ; Syscall (int 0x80) - Llama directamente desde tabla de punteros
 _irq80Handler:

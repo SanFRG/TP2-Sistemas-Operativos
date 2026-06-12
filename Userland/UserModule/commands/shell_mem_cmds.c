@@ -52,28 +52,43 @@ void cmd_mem(int argc, char *argv[]) {
 
     MemoryStatus status;
     if (mem_status(&status) != 0) {
-        println("Error: no se pudo obtener estado de memoria.");
+        print_error("Error: no se pudo obtener estado de memoria.");
         return;
     }
 
+    set_color(COLOR_CYAN);
     println("=== Estado de memoria ===");
+    set_color(COLOR_DEFAULT);
+
     print("Total bytes: ");
+    set_color(COLOR_WHITE);
     printHex(status.total_bytes);
+    set_color(COLOR_DEFAULT);
     print("\n");
     print("Used bytes:  ");
+    set_color(COLOR_WHITE);
     printHex(status.used_bytes);
+    set_color(COLOR_DEFAULT);
     print("\n");
     print("Free bytes:  ");
+    set_color(COLOR_WHITE);
     printHex(status.free_bytes);
+    set_color(COLOR_DEFAULT);
     print("\n");
     print("Allocs ok:   ");
+    set_color(COLOR_GREEN);
     printHex(status.successful_allocations);
+    set_color(COLOR_DEFAULT);
     print("\n");
     print("Frees ok:    ");
+    set_color(COLOR_GREEN);
     printHex(status.successful_frees);
+    set_color(COLOR_DEFAULT);
     print("\n");
     print("Allocs fail: ");
+    set_color(status.failed_allocations ? COLOR_RED : COLOR_WHITE);
     printHex(status.failed_allocations);
+    set_color(COLOR_DEFAULT);
     print("\n");
 }
 

@@ -51,7 +51,8 @@ void* syscall_table[SYS_COUNT] = {
     &sys_sem_post,             // 28: SYS_SEM_POST
     &sys_pipe_open,            // 29: SYS_PIPE_OPEN
     &sys_create_process_piped, // 30: SYS_CREATE_PROCESS_PIPED
-    &sys_pipe_close            // 31: SYS_PIPE_CLOSE
+    &sys_pipe_close,           // 31: SYS_PIPE_CLOSE
+    &sys_set_color             // 32: SYS_SET_COLOR
 };
 
 // ========== SYSCALL HANDLERS ==========
@@ -60,6 +61,12 @@ void* syscall_table[SYS_COUNT] = {
 uint64_t sys_clear(uint64_t color) {
     (void)color;
     tc_clear();
+    return 0;
+}
+
+// SYS_SET_COLOR: Set current text color (VGA attribute byte)
+uint64_t sys_set_color(uint64_t attr) {
+    tc_set_color((uint8_t)attr);
     return 0;
 }
 uint64_t sys_ticks(void) {

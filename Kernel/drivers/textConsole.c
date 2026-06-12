@@ -6,9 +6,14 @@
 static volatile uint16_t * const video = (volatile uint16_t *)VGA_TEXT_ADDRESS;
 static uint8_t cursor_x = 0;
 static uint8_t cursor_y = 0;
+static uint8_t current_attr = DEFAULT_ATTR;
 
 static uint16_t vga_entry(char c) {
-    return ((uint16_t)DEFAULT_ATTR << 8) | (uint8_t)c;
+    return ((uint16_t)current_attr << 8) | (uint8_t)c;
+}
+
+void tc_set_color(uint8_t attr) {
+    current_attr = attr;
 }
 
 static void put_entry_at(char c, uint8_t x, uint8_t y) {

@@ -77,9 +77,9 @@ void cmd_help(int argc, char *argv[]) {
     println("  block <pid>       - Bloquea/desbloquea un proceso");
     println("  memtest           - alloc/free corto con resumen de 'mem'");
     println("  test_mm <maxmem>  - Stress del MM. Pide/verifica/libera bloques aleatorios.");
-    println("  test_prio <n>     - 3 procesos cuentan hasta <n>. Mayor prio => 'DONE!' primero");
+    println("  test_prio <n>     - 3 procesos cuentan hasta <n>. Mayor prio =>DONE! primero");
     println("  test_proc <n>     - Crea/mata/bloquea <n> procesos al azar.");
-    println("  test_sync <p><n><s> - <p> pares inc/dec <n> veces. <s>=0 => race, <s>=1 => OK.");
+    println("  test_sync <p><n><s> - <p> pares inc/dec <n> veces. <s>=0 => race, <s>=1 => OK");
     println("  mvar <esc> <lec>  - Lectores/escritores sobre una MVar.");
     println("  cat               - Imprime stdin tal como lo recibe");
     println("  wc                - Cuenta la cantidad de lineas del input");

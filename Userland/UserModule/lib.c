@@ -57,6 +57,20 @@ void println(const char* str) {
     print("\n");
 }
 
+// Print an error line in red, then restore the default color
+void print_error(const char* str) {
+    set_color(COLOR_RED);
+    println(str);
+    set_color(COLOR_DEFAULT);
+}
+
+// Print a success line in green, then restore the default color
+void print_success(const char* str) {
+    set_color(COLOR_GREEN);
+    println(str);
+    set_color(COLOR_DEFAULT);
+}
+
 // Print integer
 void printInt(int num) {
     char buffer[20];

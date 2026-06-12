@@ -15,7 +15,9 @@ void cmd_time(int argc, char *argv[]) {
     uint8_t MM = (packed >> 32) & 0xFF;
     uint8_t YY = (packed >> 40) & 0xFF;
 
+    set_color(COLOR_WHITE);
     print("Fecha: ");
+    set_color(COLOR_CYAN);
     print2Digits(DD);
     print("/");
     print2Digits(MM);
@@ -23,12 +25,15 @@ void cmd_time(int argc, char *argv[]) {
     printInt(2000 + YY);
     print("  ");
 
+    set_color(COLOR_WHITE);
     print("Hora: ");
+    set_color(COLOR_CYAN);
     print2Digits(hh);
     print(":");
     print2Digits(mm);
     print(":");
     print2Digits(ss);
+    set_color(COLOR_DEFAULT);
     print("\n");
 }
 
@@ -38,7 +43,7 @@ void cmd_pid(int argc, char *argv[]) {
 
     int64_t pid = getpid();
     if (pid < 0) {
-        println("Error: no se pudo obtener el PID actual.");
+        print_error("Error: no se pudo obtener el PID actual.");
         return;
     }
 
@@ -53,7 +58,7 @@ void cmd_registers(int argc, char *argv[]) {
 
     RegisterSnapshot regs;
     if (get_regs(&regs) != 0) {
-        println("\nError: No se pudieron obtener los registros\n");
+        print_error("\nError: No se pudieron obtener los registros\n");
         return;
     }
 

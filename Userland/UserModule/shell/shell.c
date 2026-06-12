@@ -12,8 +12,22 @@ void shell_set_foreground_pid(int pid) {
 }
 
 static void print_welcome(void) {
-    println("Bienvenido a la Shell");
-    println("Escribe 'help' para ver los comandos disponibles\n");
+    set_color(COLOR_CYAN);
+    println("");
+    println("  +==================================================+");
+    println("  |                                                  |");
+    set_color(COLOR_WHITE);
+    println("  |            B I E N V E N I D O   A               |");
+    set_color(COLOR_GREEN);
+    println("  |             L A   S H E L L  -  T P 2            |");
+    set_color(COLOR_CYAN);
+    println("  |                                                  |");
+    println("  +==================================================+");
+    set_color(COLOR_YELLOW);
+    println("");
+    println("  Escribe 'help' para ver los comandos disponibles");
+    set_color(COLOR_DEFAULT);
+    println("");
 }
 
 static int foreground_is_alive(void) {

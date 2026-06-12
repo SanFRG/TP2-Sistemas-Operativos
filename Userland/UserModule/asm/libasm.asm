@@ -30,6 +30,7 @@ GLOBAL sem_post
 GLOBAL pipe_open
 GLOBAL create_process_piped_raw
 GLOBAL pipe_close
+GLOBAL set_color
 GLOBAL _hlt
 GLOBAL _cli
 GLOBAL _sti
@@ -67,7 +68,8 @@ SYS_SEM_POST equ 28
 SYS_PIPE_OPEN equ 29
 SYS_CREATE_PROCESS_PIPED equ 30
 SYS_PIPE_CLOSE equ 31
-SYS_COUNT equ 32
+SYS_SET_COLOR equ 32
+SYS_COUNT equ 33
 
 ; Macro para syscall via int 0x80
 ; %1 = número de syscall
@@ -229,6 +231,11 @@ create_process_piped_raw:
 ; rdi = pipe_id
 pipe_close:
     SYSCALL SYS_PIPE_CLOSE
+
+; void set_color(uint8_t attr)
+; rdi = attr (byte de atributo VGA)
+set_color:
+    SYSCALL SYS_SET_COLOR
 
 _hlt:
 	sti

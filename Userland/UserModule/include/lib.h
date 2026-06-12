@@ -36,7 +36,8 @@ enum {
     SYS_PIPE_OPEN = 29,
     SYS_CREATE_PROCESS_PIPED = 30,
     SYS_PIPE_CLOSE = 31,
-    SYS_COUNT = 32
+    SYS_SET_COLOR = 32,
+    SYS_COUNT = 33
 };
 
 typedef struct {
@@ -82,6 +83,16 @@ extern uint64_t read(char* buffer, int max_len);
 extern uint64_t write(int fd, const char* str, int len);
 extern uint64_t get_time();
 extern uint64_t clear_screen(uint32_t color);
+extern void set_color(uint8_t attr);  // Set current text color (VGA attribute byte)
+
+// Atributos de color VGA en modo texto (nibble bajo = texto, alto = fondo).
+// Se pasan a set_color() para teñir el texto que se imprima a continuacion.
+#define COLOR_DEFAULT 0x07  // gris claro sobre negro
+#define COLOR_RED     0x0C  // rojo claro
+#define COLOR_GREEN   0x02  // verde apagado (sin bit 0x08 de brillo)
+#define COLOR_CYAN    0x03  // cyan apagado (sin bit 0x08 de brillo)
+#define COLOR_YELLOW  0x0E  // amarillo
+#define COLOR_WHITE   0x0F  // blanco
 extern uint64_t get_ticks(void);
 extern int get_key(void);  // Returns scancode or 0 if no key pressed
 extern void sleep_ticks(int ticks);  // Sleep for specified number of ticks
@@ -121,6 +132,8 @@ int atoi(const char* str);
 // Print helpers
 void print(const char* str);
 void println(const char* str);
+void print_error(const char* str);    // imprime en rojo y vuelve al color por defecto
+void print_success(const char* str);  // imprime en verde y vuelve al color por defecto
 void printInt(int num);
 void printHex(uint64_t num);
 void print2Digits(int num);
@@ -129,4 +142,5 @@ void print2Digits(int num);
 void itoa(int num, char* buffer);
 void hexToString(uint64_t num, char* buffer);
 
-#endif
+#endif LIB_USER_H
+
