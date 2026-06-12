@@ -89,6 +89,21 @@ void keyboard_handler() {
 
 // Convierte scancode a char ASCII
 char scancode_to_char(uint8_t scancode) {
+    static int extended = 0;
+
+    // Manejo de teclas extendidas (flechas). Debe ir ANTES del chequeo de
+    // RELEASE_MASK porque 0xE0 tiene el bit 7 seteado (0xE0 & 0x80 == 0x80).
+    if (scancode == EXTENDED_PREFIX) {
+        extended = 1;
+        return 0;
+    }
+    if (extended) {
+        extended = 0;
+        if (scancode == ARROW_UP_SCANCODE) return KEY_UP;
+        if (scancode == ARROW_DOWN_SCANCODE) return KEY_DOWN;
+        return 0;  // Otras extendidas (incluye releases 0xC8, 0xD0, etc.)
+    }
+
     if (scancode & RELEASE_MASK) {
         uint8_t key = scancode & ~RELEASE_MASK;
         if (key == LEFT_SHIFT_SCANCODE || key == RIGHT_SHIFT_SCANCODE) {
