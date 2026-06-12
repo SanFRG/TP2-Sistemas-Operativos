@@ -45,7 +45,6 @@ void cmd_test_proc(int argc, char *argv[]) {
     tp_rq rqs[MAX_TEST_PROC];
     int max_processes;
     int alive;
-    uint64_t round = 0;
 
     if (argc != 2) {
         println("Uso: test_proc <cantidad_de_procesos>");
@@ -60,10 +59,8 @@ void cmd_test_proc(int argc, char *argv[]) {
         return;
     }
 
-    print("test_proc: corriendo con ");
-    printInt(max_processes);
-    println(" procesos (Ctrl+C o kill para terminar)...");
-
+    /* Solo imprime ante un error (segun el enunciado). Es un ciclo infinito;
+     * se corta con Ctrl+C o matandolo con 'kill'. */
     while (1) {
         alive = 0;
 
@@ -124,9 +121,5 @@ void cmd_test_proc(int argc, char *argv[]) {
                 }
             }
         }
-
-        print("test_proc: ronda ");
-        printInt((int)round++);
-        println(" completada");
     }
 }

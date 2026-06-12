@@ -3,7 +3,7 @@
 #include <stdint.h>
 
 #define TEST_SYNC_SEM "test_sync_sem"
-#define TEST_SYNC_PAIRS 2
+#define TEST_SYNC_MAX_PAIRS 16
 
 typedef struct {
     uint64_t iterations;
@@ -13,9 +13,32 @@ typedef struct {
 
 static int64_t shared_value = 0;
 
-static void slow_inc(int64_t *value, int delta, uint64_t step) {
+/* RNG entero (Marsaglia MWC), igual que GetUint de la catedra. Sin punto
+ * flotante: el kernel compila con -mno-sse y no guarda FPU en el context
+ * switch. */
+static uint32_t sync_rand_z = 362436069U;
+static uint32_t sync_rand_w = 521288629U;
+
+static uint32_t sync_rand_u32(void) {
+    sync_rand_z = 36969U * (sync_rand_z & 65535U) + (sync_rand_z >> 16);
+    sync_rand_w = 18000U * (sync_rand_w & 65535U) + (sync_rand_w >> 16);
+    return (sync_rand_z << 16) + sync_rand_w;
+}
+
+/* Entero uniforme en [0, max). */
+static uint32_t sync_uniform(uint32_t max) {
+    if (max == 0) {
+        return 0;
+    }
+    return (uint32_t)(((uint64_t)sync_rand_u32() * max) >> 32);
+}
+
+static void slow_inc(int64_t *value, int delta) {
     int64_t aux = *value;
-    if ((step & 3) == 0) {
+    /* ~30% de probabilidad de ceder el CPU en plena lectura-modificacion-
+     * escritura: hace muy probable la condicion de carrera sin semaforo,
+     * tal como el slowInc de la catedra (GetUniform(100) < 30). */
+    if (sync_uniform(100) < 30) {
         yield_cpu();
     }
     aux += delta;
@@ -37,7 +60,7 @@ static void sync_worker_entry(void *arg) {
             break;
         }
 
-        slow_inc(&shared_value, cfg->delta, i);
+        slow_inc(&shared_value, cfg->delta);
 
         if (cfg->use_sem && sem_post(TEST_SYNC_SEM) != 0) {
             break;
@@ -49,31 +72,46 @@ static void sync_worker_entry(void *arg) {
     }
 }
 
+/* Parametros (segun enunciado): <pares> <iteraciones> <use_sem: 0|1>.
+ * Crea <pares> pares de procesos; en cada par uno incrementa y otro decrementa
+ * <iteraciones> veces la variable global compartida. Con semaforo el resultado
+ * final es siempre 0; sin semaforo varia por la condicion de carrera. */
 void cmd_test_sync(int argc, char *argv[]) {
-    uint64_t iterations;
-    int use_sem;
-    sync_worker_args_t args[TEST_SYNC_PAIRS * 2];
-    int64_t pids[TEST_SYNC_PAIRS * 2];
+    sync_worker_args_t args[TEST_SYNC_MAX_PAIRS * 2];
+    int64_t pids[TEST_SYNC_MAX_PAIRS * 2];
 
-    if (argc != 3) {
-        println("Uso: test_sync <iteraciones> <use_sem: 0|1>");
+    if (argc != 4) {
+        println("Uso: test_sync <pares> <iteraciones> <use_sem: 0|1>");
         return;
     }
 
-    int parsed_iterations = atoi(argv[1]);
-    use_sem = atoi(argv[2]);
+    int pairs = atoi(argv[1]);
+    int parsed_iterations = atoi(argv[2]);
+    int use_sem = atoi(argv[3]);
 
+    if (pairs <= 0 || pairs > TEST_SYNC_MAX_PAIRS) {
+        print("test_sync: pares debe estar entre 1 y ");
+        printInt(TEST_SYNC_MAX_PAIRS);
+        println(".");
+        return;
+    }
     if (parsed_iterations <= 0 || (use_sem != 0 && use_sem != 1)) {
-        println("Uso: test_sync <iteraciones> <use_sem: 0|1>");
+        println("Uso: test_sync <pares> <iteraciones> <use_sem: 0|1>");
         return;
     }
-    iterations = (uint64_t)parsed_iterations;
+    uint64_t iterations = (uint64_t)parsed_iterations;
+    int total = pairs * 2;
 
     shared_value = 0;
 
-    for (int i = 0; i < TEST_SYNC_PAIRS; i++) {
+    for (int i = 0; i < total; i++) {
+        pids[i] = -1;
+    }
+
+    int failed = 0;
+    for (int i = 0; i < pairs && !failed; i++) {
         int dec_idx = i;
-        int inc_idx = i + TEST_SYNC_PAIRS;
+        int inc_idx = i + pairs;
 
         args[dec_idx].iterations = iterations;
         args[dec_idx].delta = -1;
@@ -88,17 +126,19 @@ void cmd_test_sync(int argc, char *argv[]) {
 
         if (pids[dec_idx] < 0 || pids[inc_idx] < 0) {
             println("test_sync: error creando procesos.");
-            for (int j = 0; j < (i * 2) + (pids[dec_idx] >= 0 ? 1 : 0) + (pids[inc_idx] >= 0 ? 1 : 0); j++) {
-                if (pids[j] >= 0) {
-                    waitpid(pids[j]);
-                }
-            }
-            return;
+            failed = 1;
         }
     }
 
-    for (int i = 0; i < TEST_SYNC_PAIRS * 2; i++) {
-        waitpid(pids[i]);
+    /* Espera (y limpia) a todos los procesos que si se crearon. */
+    for (int i = 0; i < total; i++) {
+        if (pids[i] >= 0) {
+            waitpid(pids[i]);
+        }
+    }
+
+    if (failed) {
+        return;
     }
 
     print("Final value: ");

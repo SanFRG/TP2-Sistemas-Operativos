@@ -51,6 +51,7 @@ static Command commands[] = {
     {"block", cmd_block},
     {"test_sync", cmd_test_sync},
     {"test_proc", cmd_test_proc},
+    {"test_prio", cmd_test_prio},
     {"mvar",      cmd_mvar},
     {"cat",       cmd_cat},
     {"wc",        cmd_wc},
@@ -63,32 +64,30 @@ void cmd_help(int argc, char *argv[]) {
     (void)argc;
     (void)argv;
 
-    println("Comandos disponibles:");
-    println("  help              - Muestra este mensaje de ayuda");
     println("  time              - Muestra la fecha y hora actual");
     println("  mem               - Muestra el estado del memory manager");
     println("  pid               - Muestra el PID del proceso actual");
-    println("  ps                - Lista procesos activos");
-    println("  memtest           - Ejecuta alloc/free de prueba");
-    println("  test_mm <maxmem>  - Test de stress de alloc/free (bytes)");
-    println("  test_sync <n> <s> - Test de sincronizacion (s=0/1)");
-    println("  test_proc <n>     - Test de procesos (crea/mata/bloquea n)");
-    println("  mvar <esc> <lec>  - Lectores/escritores sobre una MVar");
-    println("  cancion           - Reproduce Mario Bros");
+    println("  ps                - Lista procesos activos (PID/PPID/PRIO/STATE)");
+    println("  clear             - Limpia la pantalla");
+    println("  cancion           - Reproduce Mario Bros por el PC speaker");
+    println("  exit              - Sale de la shell");
     println("  loop [-p prio]    - Lanza proceso loop (espera activa)");
     println("  kill <pid>        - Mata un proceso");
-    println("  nice <pid> <prio> - Cambia prioridad (0-2)");
+    println("  nice <pid> <prio> - Cambia prioridad (0=min, 2=max)");
     println("  block <pid>       - Bloquea/desbloquea un proceso");
-    println("  clear             - Limpia la pantalla");
+    println("  memtest           - alloc/free corto con resumen de 'mem'");
+    println("  test_mm <maxmem>  - Stress del MM. Pide/verifica/libera bloques aleatorios.");
+    println("  test_prio <n>     - 3 procesos cuentan hasta <n>. Mayor prio => 'DONE!' primero");
+    println("  test_proc <n>     - Crea/mata/bloquea <n> procesos al azar.");
+    println("  test_sync <p><n><s> - <p> pares inc/dec <n> veces. <s>=0 => race, <s>=1 => OK.");
+    println("  mvar <esc> <lec>  - Lectores/escritores sobre una MVar.");
     println("  cat               - Imprime stdin tal como lo recibe");
     println("  wc                - Cuenta la cantidad de lineas del input");
-    println("  filter            - Filtra las vocales del input");
-    println("  exit              - Sale de la shell");
-    println("Modificadores:");
-    println("  &                 - Ejecuta en background");
-    println("  |                 - Conecta stdout de cmd1 con stdin de cmd2");
-    println("  Ctrl+C            - Mata proceso foreground");
-    println("  Ctrl+D            - EOF");
+    println("  filter            - Filtra (elimina) las vocales del input");
+    println("  &                 - Ejecuta el comando en background.");
+    println("  |                 - Conecta stdout de cmd1 con stdin de cmd2.");
+    println("  Ctrl+C            - Mata el proceso foreground");
+    println("  Ctrl+D            - Envia EOF a la lectura actual");
 }
 
 static void (*find_cmd_fn(char *name))(int, char **) {

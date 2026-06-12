@@ -166,7 +166,6 @@ void cmd_test_mm(int argc, char *argv[]) {
     uint8_t rq;
     uint32_t i;
     uint32_t max_memory;
-    uint64_t cycle = 0;
 
     if (argc != 2) {
         println("Uso: test_mm <memoria_maxima_en_bytes>");
@@ -180,13 +179,10 @@ void cmd_test_mm(int argc, char *argv[]) {
     }
     max_memory = (uint32_t)parsed;
 
-    print("test_mm: corriendo con max_memory=");
-    printInt((int)max_memory);
-    println(" bytes (Ctrl+C o kill para terminar)...");
-
     /* Bucle infinito como el test de la catedra: pide bloques de tamanio
-     * aleatorio hasta llenar max_memory, los escribe, verifica que no haya
-     * corrupcion y los libera. Solo corta si detecta un error. */
+     * aleatorio hasta llenar max_memory, los escribe, verifica que no se
+     * solapen (cada bloque lleva un valor unico) y los libera. Solo imprime
+     * si detecta un error. Se corta con Ctrl+C o 'kill'. */
     while (1) {
         rq = 0;
         total = 0;
@@ -224,9 +220,5 @@ void cmd_test_mm(int argc, char *argv[]) {
                 mem_free(reqs[i].address);
             }
         }
-
-        print("test_mm: ciclo ");
-        printInt((int)cycle++);
-        println(" OK");
     }
 }

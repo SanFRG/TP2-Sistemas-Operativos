@@ -28,6 +28,7 @@ EXTERN exceptionDispatcher
 EXTERN syscall_table
 EXTERN defaultInterruptDispatcher
 EXTERN scheduler_switch
+EXTERN process_exit_if_kill_pending
 
 GLOBAL _yield
 
@@ -244,6 +245,14 @@ _irq80Handler:
 
 	; El resultado esta en rax, guardarlo en el stack para que popState lo restaure
 	mov [rsp + 14*8], rax
+
+	; Checkpoint de terminacion: si a este proceso lo mataron (kill_pending)
+	; mientras corria, aprovechamos el retorno de CUALQUIER syscall para que
+	; muera ordenadamente. Asi un proceso CPU-bound (p. ej. test_mm) que no
+	; llama yield_cpu igual responde a Ctrl+C. Si no hay kill pendiente, es
+	; un no-op y retorna normal; el resultado ya quedo guardado en el stack y
+	; popState restaura todos los registros, asi que el clobber no molesta.
+	call process_exit_if_kill_pending
 
 	popState
 	iretq

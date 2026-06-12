@@ -120,6 +120,41 @@ static void clean_orphan(void) {
     }
 }
 
+// Termina a todos los hijos vivos de 'parent_pid'. Se llama cuando un proceso
+// muere (exit o kill) para que no queden huerfanos corriendo para siempre
+// (p. ej. los endless_loop que crea test_proc y que nunca terminan solos).
+// Los hijos READY/RUNNING se marcan kill_pending (mueren en su proximo
+// checkpoint de syscall); los BLOCKED se matan en el acto, porque no van a
+// llegar solos a un checkpoint. La cascada a los nietos la dispara cada hijo al
+// pasar por process_exit, salvo los BLOCKED, que se propagan aca mismo.
+static void terminate_children(int parent_pid) {
+    for (int i = 0; i < MAX_PROCESSES; i++) {
+        PCB *p = &process_table[i];
+        if (p->pid == 0 || p->pid == idle_pid || p->pid == parent_pid) {
+            continue;
+        }
+        if (p->parent_pid != parent_pid) {
+            continue;
+        }
+        if (p->state == KILLED || p->state == TERMINATED) {
+            continue;
+        }
+
+        if (p->state == BLOCKED) {
+            pipe_on_process_exit(p->fd[0], p->fd[1], p->fd[2]);
+            p->state = KILLED;
+            p->exit_code = -1;
+            p->kill_pending = 0;
+            sem_remove_waiter(p->pid);
+            terminate_children(p->pid);   // cascada a los nietos
+        } else {
+            // READY / RUNNING: muere cooperativamente en su proximo syscall.
+            p->kill_pending = 1;
+            p->exit_code = -1;
+        }
+    }
+}
+
 void process_system_init(void) {
     for (int i = 0; i < MAX_PROCESSES; i++) {
         clear_pcb_slot(&process_table[i]);
@@ -214,6 +249,7 @@ int process_kill(int pid) {
     p->exit_code = -1;
     p->kill_pending = 0;
     sem_remove_waiter(pid);   // ya protege su seccion critica con _cli/_sti
+    terminate_children(p->pid);  // sus hijos vivos mueren con el
     wake_parent_if_waiting(p);
 
     // Si el proceso muerto era huerfano (padre ya no existe), nadie lo va a
@@ -341,7 +377,13 @@ int process_list(process_info *buffer, uint64_t max_entries) {
 void process_exit(int exit_code) {
     PCB *me = get_process_by_pid(current_pid);
     if (me != NULL) {
-        if (me->kill_pending) {
+        // Solo me llevo a mis hijos vivos si a MI me mataron (kill_pending).
+        // Si termino ordenadamente (return / exit_process(0)), los hijos
+        // sobreviven como huerfanos, igual que en Unix. Esto es clave para
+        // mvar: su proceso principal spawnea writers/readers y retorna de
+        // inmediato, y esos workers deben seguir corriendo.
+        int was_killed = me->kill_pending;
+        if (was_killed) {
             exit_code = -1;
         }
         pipe_on_process_exit(me->fd[0], me->fd[1], me->fd[2]);
@@ -349,6 +391,9 @@ void process_exit(int exit_code) {
         me->state = TERMINATED;
         me->exit_code = exit_code;
         me->kill_pending = 0;
+        if (was_killed) {
+            terminate_children(me->pid);
+        }
         wake_parent_if_waiting(me);   // si el padre esperaba, lo despierta
     }
     _yield();                 // cede el CPU; el scheduler ya no nos elige

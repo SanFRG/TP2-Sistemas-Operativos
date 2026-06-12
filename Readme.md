@@ -119,7 +119,9 @@ Los comandos no distinguen mayusculas de minusculas.
 | `pid` | ninguno | Muestra el PID del proceso actual. |
 | `ps` | ninguno | Lista PID, PPID, prioridad, foreground, estado, contador y nombre de cada proceso activo. |
 | `memtest` | ninguno | Prueba simple de `alloc/free` con bloques de 64 y 256 bytes. |
-| `test_mm` | ninguno | Stress test acotado del memory manager desde userland. Reserva, escribe, verifica y libera bloques. |
+| `test_mm` | `<maxmem>` | Stress test del memory manager. Pide bloques aleatorios hasta `<maxmem>` bytes, los escribe, verifica y libera en loop. Frenar con `Ctrl+C` o `kill`. |
+| `test_prio` | `<max_value>` | Lanza 3 procesos que cuentan hasta `<max_value>`; demuestra que la mayor prioridad imprime `DONE!` primero. |
+| `test_proc` | `<n>` | Crea, mata, bloquea y desbloquea `<n>` procesos (1-16) al azar en loop. Frenar con `Ctrl+C` o `kill`. |
 | `regs` | ninguno | Muestra el ultimo snapshot de registros guardado. |
 | `clear` | ninguno | Limpia la pantalla. |
 | `cerodiv` | ninguno | Dispara una excepcion de division por cero. |
@@ -129,7 +131,7 @@ Los comandos no distinguen mayusculas de minusculas.
 | `kill` | `<pid>` | Mata un proceso por PID. |
 | `nice` | `<pid> <prio>` | Cambia prioridad de un proceso. Prioridad valida: `0` a `2`. |
 | `block` | `<pid>` | Bloquea un proceso READY/RUNNING o desbloquea uno BLOCKED. |
-| `test_sync` | `<iteraciones> <use_sem: 0|1>` | Ejecuta una prueba de sincronizacion con o sin semaforo. |
+| `test_sync` | `<pares> <iteraciones> <use_sem: 0|1>` | Crea `<pares>` pares de procesos que incrementan/decrementan una variable global; con semaforo el resultado final es 0. |
 | `cat` | ninguno | Imprime el stdin tal como lo recibe. |
 | `wc` | ninguno | Cuenta la cantidad de lineas del input. |
 | `filter` | ninguno | Filtra las vocales del input (las elimina, pasa el resto). |
@@ -140,12 +142,14 @@ Los comandos no distinguen mayusculas de minusculas.
 | Test | Parametros | Descripcion |
 | --- | --- | --- |
 | `memtest` | ninguno | Test manual corto de reserva y liberacion. |
-| `test_mm` | ninguno | Test de stress acotado del memory manager. |
-| `test_sync` | `<iteraciones> <use_sem: 0|1>` | Crea procesos que modifican una variable compartida. Con `use_sem=1` sincroniza con semaforos. |
+| `test_mm` | `<maxmem>` | Test de stress del memory manager (loop infinito). Ej: `test_mm 100000`. |
+| `test_prio` | `<max_value>` | Test de prioridades: 3 procesos contadores, la mayor prioridad termina primero. Ej: `test_prio 1000000`. |
+| `test_proc` | `<n>` | Test de procesos: crea/mata/bloquea `<n>` procesos al azar. Ej: `test_proc 5`. |
+| `test_sync` | `<pares> <iteraciones> <use_sem: 0|1>` | Crea `<pares>` pares de procesos que modifican una variable compartida. Con `use_sem=1` sincroniza con semaforos (final 0). Ej: `test_sync 2 1000 1`. |
 | `cerodiv` | ninguno | Verifica manejo de excepcion de division por cero. |
 | `invalido` | ninguno | Verifica manejo de excepcion de opcode invalido. |
 
-Los fuentes de tests de catedra estan en `MemoryTest/`. El test de sincronizacion integrado en la shell es la version de userland en `Userland/UserModule/test_sync_userland.c`; los wrappers de `MemoryTest/syscall.c` siguen siendo stubs y no ejercitan el kernel actual.
+Los cuatro tests de la catedra (`test_mm`, `test_prio`, `test_proc`, `test_sync`) estan portados desde `MemoryTest/` a la API de userland de este TP e integrados como comandos de la shell, en `Userland/UserModule/commands/shell_mem_cmds.c` (`test_mm`) y `Userland/UserModule/tests/` (`test_prio`, `test_proc`, `test_sync`). Los fuentes originales de catedra quedan en `MemoryTest/` solo como referencia; sus wrappers de `MemoryTest/syscall.c` son stubs y no se compilan en el kernel.
 
 ## Caracteres especiales
 
@@ -164,7 +168,7 @@ Ejemplos:
 ```txt
 loop &
 test_mm &
-test_sync 100 1 &
+test_sync 100 1 1 &
 ```
 
 ### Pipes
@@ -267,8 +271,8 @@ Escribi texto con vocales. `filter` elimina todas las vocales y escribe el resto
 ### Semaforos y sincronizacion
 
 ```txt
-test_sync 1000 0
-test_sync 1000 1
+test_sync 2 1000 0
+test_sync 2 1000 1
 ```
 
 El primer comando ejecuta la prueba sin semaforo y puede mostrar condicion de carrera. El segundo usa un semaforo nombrado para proteger la variable compartida; el valor final esperado es 0 (los incrementos y decrementos se cancelan).
@@ -316,16 +320,10 @@ En el prompt, presionar `Ctrl+D`. La shell interpreta EOF y vuelve a mostrar el 
 - Proceso idle para cuando no hay procesos READY.
 - `Ctrl+C` para interrumpir lectura o matar foreground.
 - `Ctrl+D` como EOF de lectura.
-- Test `test_mm` en userland.
-- Test `test_sync` en userland.
+- Tests `test_mm`, `test_prio`, `test_proc` y `test_sync` portados de catedra e integrados como comandos de la shell.
 - Tests unitarios de host para ambos memory managers.
 - Comandos `cat`, `wc`, `filter`: implementados.
-
-## Requerimientos faltantes o parcialmente implementados
-
-- `test_proc`: el fuente esta en `MemoryTest/`, pero no esta integrado como comando y sus wrappers de syscall son stubs.
-- `test_prio`: el fuente esta en `MemoryTest/`, pero no esta integrado como comando y sus wrappers de syscall son stubs.
-- Comando `mvar`: no implementado.
+- Comando `mvar`: lectores/escritores sobre una MVar sincronizada con semaforos.
 
 ## Limitaciones
 
