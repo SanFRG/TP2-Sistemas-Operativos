@@ -142,6 +142,19 @@ Poder suspender un proceso y continuar otro guardando/restaurando contexto.
 
 ## 5. Scheduler
 
+### Estado / decisiones de implementacion
+- El scheduler es **Round Robin ponderado por frecuencia**: cada proceso recibe por
+  ronda una cantidad de turnos (`sched_credits`) igual a su peso segun prioridad
+  (`{1,3,9}` para prioridad 0/1/2). Cada turno dura un tick; cuando ningun READY
+  tiene creditos, se recargan todos (nueva ronda). Asi mayor prioridad = elegido mas
+  seguido = mas CPU (lo que hace andar `test_prio`). Se eligio frecuencia en vez de
+  quantum largo porque un proceso que se bloquea (p. ej. los de mvar) no aprovecha un
+  quantum largo, pero si se beneficia de ser elegido mas seguido.
+- Para que la prioridad se note tambien en procesos que compiten por un semaforo
+  (mvar), `sem_post` despierta con **weighted fair queueing por tiempo virtual**
+  (`sched_vtime`): elige al esperante de menor vtime y le cobra `9/peso`. A igual
+  prioridad se turnan; a mayor prioridad uno gana mas seguido pero sin starvation.
+
 ### Objetivo
 Implementar multitasking preemptivo con Round Robin con prioridades.
 
@@ -313,7 +326,19 @@ Demostrar cada parte del TP con programas de usuario.
 - `test_mm` debe pasar al menos con uno de los memory managers.
 - `test_sync` debe mostrar diferencia entre usar y no usar semaforos.
 
-## 10. MVar
+## 10. MVar  ✅ IMPLEMENTADO
+
+### Estado
+Funciona: `mvar <escritores> <lectores>` lanza writers/readers que se sincronizan
+con dos semaforos (`empty` init 1, `full` init 0) sobre una variable global. El
+proceso principal retorna apenas crea a los hijos (quedan en background). Demuestra:
+- **Sincronizacion**: solo un proceso accede a la MVar a la vez; salida tipo `ABABAB`.
+- **Prioridades**: subir la prioridad de un writer/reader con `nice` lo hace aparecer
+  mas seguido. Esto se logra con *weighted fair queueing por tiempo virtual* en el
+  wakeup de los semaforos (ver etapa 5): a igual prioridad se turnan (ABAB), con
+  mayor prioridad uno sale mas seguido pero sin starvation del otro (ABBB).
+- **Kills**: matar un writer/reader con `kill` saca esa letra de la salida sin colgar
+  el sistema (el modelo de "token en value" evita perder el semaforo al matar).
 
 ### Objetivo
 Implementar el problema de multiples lectores y escritores sobre una variable global estilo MVar.
@@ -414,9 +439,14 @@ tener en cuenta: Procesos zombie: un proceso TERMINATED cuyo padre nunca llama a
 
 La consigna exige: "Pasar los tests test_mm, test_proc y test_sync como procesos de usuario (no built-ins) en foreground y background".
 
-test_proc no existe como comando — no está en la tabla de shell_commands.c:23-45. El fuente está en MemoryTest/test_processes.c pero no está integrado (el propio Readme.md:327 lo admite).
-mvar no implementado — aplicación obligatoria, no hay cmd_mvar (Readme.md:330).
-& (background) se parsea pero se ignora — shell_parser.c:30 setea command->background = 1, pero shell_execute_command nunca lee ese flag. ⇒ ningún test se puede correr en background, que es obligatorio.
+NOTA: la lista de abajo es de una revision vieja; varios items YA estan resueltos
+(marcados [RESUELTO]). Quedan como historial / pendientes a verificar.
+
+test_proc [RESUELTO] — ya esta registrado en shell_commands.c como comando de usuario.
+mvar [RESUELTO] — implementado (cmd_mvar en shell_mvar_cmds.c). Ver etapa 10.
+& (background) — verificar si shell_execute_command ya lee el flag command->background.
+  Si lo ignora, los tests no corren en background (obligatorio). Confirmar al correr
+  `test_proc 10 &` y ver si vuelve el prompt enseguida.
 test_mm corre como built-in inline, no como proceso — cmd_test_mm ejecuta todo dentro del proceso shell. Y ignora el parámetro de memoria máxima (hardcodea 128 KB y 40 iteraciones) en vez de tomarlo como pide la consigna.
 🟠 Otros incumplimientos de consigna
 ps no muestra stack pointer ni base pointer — la consigna los pide explícitamente. process_info (lib.h:68-76) no tiene esos campos y cmd_ps no los imprime.
