@@ -2,7 +2,6 @@
 #include <stdint.h>
 #include <syscall_dispatcher.h>
 #include <keyboard.h>
-#include <naiveConsole.h>
 #include <exceptions.h>
 
 static void int_20();

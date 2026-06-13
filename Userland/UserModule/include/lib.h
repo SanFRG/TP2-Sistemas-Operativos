@@ -125,7 +125,6 @@ int64_t create_process_piped(char *name, void (*entry)(void *), void *arg, int p
 
 // String functions
 int strlen(const char* str);
-int strcmp(const char* s1, const char* s2);
 int strcasecmp(const char* s1, const char* s2);  // Case-insensitive compare
 int atoi(const char* str);
 
@@ -133,7 +132,6 @@ int atoi(const char* str);
 void print(const char* str);
 void println(const char* str);
 void print_error(const char* str);    // imprime en rojo y vuelve al color por defecto
-void print_success(const char* str);  // imprime en verde y vuelve al color por defecto
 void printInt(int num);
 void printHex(uint64_t num);
 void print2Digits(int num);

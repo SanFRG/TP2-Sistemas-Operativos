@@ -19,13 +19,6 @@ int process_get_current_fd(int fd_index) {
     return p->fd[fd_index];
 }
 
-int process_get_fd(int pid, int fd_index) {
-    if (fd_index < 0 || fd_index >= 3) return -1;
-    PCB *p = get_process_by_pid(pid);
-    if (p == NULL) return -1;
-    return p->fd[fd_index];
-}
-
 int process_block(int pid) {
     PCB *p = get_process_by_pid(pid);
     if (p == NULL || pid == idle_pid) {  // al idle no se lo bloquea
@@ -82,14 +75,6 @@ int process_set_priority(int pid, int new_priority) {
     // proximo refill.
     p->sched_credits = weight_for(p);
     return 0;
-}
-
-int process_get_priority(int pid) {
-    PCB *p = get_process_by_pid(pid);
-    if (p == NULL) {
-        return -1;
-    }
-    return p->priority;
 }
 
 uint64_t process_get_vtime(int pid) {

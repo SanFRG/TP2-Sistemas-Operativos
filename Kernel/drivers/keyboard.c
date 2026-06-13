@@ -1,6 +1,5 @@
 #include <keyboard.h>
 #include <lib.h>
-#include <naiveConsole.h>
 #include <syscall_dispatcher.h>
 #include <exceptions.h>
 
@@ -131,10 +130,6 @@ char scancode_to_char(uint8_t scancode) {
 
     // Seleccionar tabla según estado de Shift
     return shift_pressed ? ascii_shift[scancode] : ascii[scancode];
-}
-
-int is_ctrl_pressed(void) {
-    return ctrl_pressed;
 }
 
 int hasNextKey() {

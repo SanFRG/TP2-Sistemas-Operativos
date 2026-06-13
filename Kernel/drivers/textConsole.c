@@ -106,22 +106,3 @@ void tc_write(const char *str, uint64_t length) {
     }
 }
 
-void tc_write_at(const char *str, uint64_t length, uint8_t x, uint8_t y) {
-    if (str == 0 || x >= TEXT_CONSOLE_WIDTH || y >= TEXT_CONSOLE_HEIGHT) {
-        return;
-    }
-
-    for (uint64_t i = 0; i < length && str[i] != 0 && x < TEXT_CONSOLE_WIDTH; i++) {
-        if (str[i] >= 32 && str[i] <= 126) {
-            put_entry_at(str[i], x++, y);
-        }
-    }
-}
-
-uint16_t tc_get_width(void) {
-    return TEXT_CONSOLE_WIDTH;
-}
-
-uint16_t tc_get_height(void) {
-    return TEXT_CONSOLE_HEIGHT;
-}
