@@ -37,9 +37,7 @@ enum {
     SYS_CREATE_PROCESS_PIPED = 30,
     SYS_PIPE_CLOSE = 31,
     SYS_SET_COLOR = 32,
-    SYS_PIPE_OPEN_NAMED = 33,
-    SYS_SET_FD = 34,
-    SYS_COUNT = 35
+    SYS_COUNT = 33
 };
 
 typedef struct {
@@ -122,8 +120,6 @@ extern int64_t sem_wait(const char *name);
 extern int64_t sem_post(const char *name);
 extern int64_t pipe_open(void);
 extern int64_t pipe_close(int64_t pipe_id);
-extern int64_t pipe_open_named(const char *name);
-extern int64_t set_fd(int64_t fd_index, int64_t fd_value);
 extern int64_t create_process_piped_raw(create_proc_piped_args_t *args);
 int64_t create_process_piped(char *name, void (*entry)(void *), void *arg, int priority, int foreground, int fd_in, int fd_out);
 
@@ -147,3 +143,4 @@ void itoa(int num, char* buffer);
 void hexToString(uint64_t num, char* buffer);
 
 #endif // LIB_USER_H
+

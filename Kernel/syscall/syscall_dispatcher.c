@@ -52,9 +52,7 @@ void* syscall_table[SYS_COUNT] = {
     &sys_pipe_open,            // 29: SYS_PIPE_OPEN
     &sys_create_process_piped, // 30: SYS_CREATE_PROCESS_PIPED
     &sys_pipe_close,           // 31: SYS_PIPE_CLOSE
-    &sys_set_color,            // 32: SYS_SET_COLOR
-    &sys_pipe_open_named,      // 33: SYS_PIPE_OPEN_NAMED
-    &sys_set_fd                // 34: SYS_SET_FD
+    &sys_set_color             // 32: SYS_SET_COLOR
 };
 
 // ========== SYSCALL HANDLERS ==========
@@ -280,15 +278,6 @@ uint64_t sys_pipe_open(void) {
 uint64_t sys_pipe_close(uint64_t pipe_id) {
     pipe_close((int)pipe_id);
     return 0;
-}
-
-uint64_t sys_pipe_open_named(uint64_t name_ptr) {
-    if (name_ptr == 0) return (uint64_t)-1;
-    return (uint64_t)pipe_open_named((const char *)name_ptr);
-}
-
-uint64_t sys_set_fd(uint64_t fd_index, uint64_t fd_value) {
-    return (uint64_t)process_set_current_fd((int)fd_index, (int)fd_value);
 }
 
 uint64_t sys_create_process_piped(uint64_t args_ptr) {

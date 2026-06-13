@@ -132,9 +132,9 @@ Los comandos no distinguen mayusculas de minusculas.
 | `nice` | `<pid> <prio>` | Cambia prioridad de un proceso. Prioridad valida: `0` a `2`. |
 | `block` | `<pid>` | Bloquea un proceso READY/RUNNING o desbloquea uno BLOCKED. |
 | `test_sync` | `<pares> <iteraciones> <use_sem: 0|1>` | Crea `<pares>` pares de procesos que incrementan/decrementan una variable global; con semaforo el resultado final es 0. |
-| `cat` | `[pipe]` | Sin argumentos imprime stdin; con `<pipe>` escribe stdin en un pipe nombrado. |
-| `wc` | `[pipe]` | Sin argumentos cuenta lineas de stdin; con `<pipe>` lee desde un pipe nombrado. |
-| `filter` | `[pipe]` | Sin argumentos filtra stdin; con `<pipe>` lee desde un pipe nombrado. |
+| `cat` | ninguno | Imprime el stdin tal como lo recibe. |
+| `wc` | ninguno | Cuenta la cantidad de lineas del input. |
+| `filter` | ninguno | Filtra las vocales del input (las elimina, pasa el resto). |
 | `exit` | ninguno | Cierra la shell y vuelve al kernel. |
 
 ### Tests disponibles desde la shell
@@ -190,28 +190,6 @@ time | cat             # time escribe fecha/hora, cat lo reenvia a pantalla
 ```
 
 El proceso izquierdo escribe en el pipe; el proceso derecho lee del pipe de forma bloqueante. Cuando el escritor termina, el lector recibe EOF y finaliza.
-
-### Pipes nombrados
-
-Ademas de `cmd1 | cmd2`, existen pipes nombrados para que procesos lanzados por separado puedan compartir un canal si acuerdan el mismo identificador. `cat`, `wc` y `filter` aceptan un nombre opcional de pipe para abrirlo mediante `pipe_open_named`.
-
-Ejemplo:
-
-```txt
-cat demo
-wc demo
-```
-
-En el primer comando, `cat` lee del teclado y escribe en el pipe `demo`; al enviar `Ctrl+D`, cierra su extremo de escritura. Luego `wc demo` abre el mismo pipe por nombre, lee lo acumulado y cuenta las lineas.
-
-Tambien se puede lanzar el lector primero y dejarlo bloqueado hasta que haya datos:
-
-```txt
-wc demo &
-cat demo
-```
-
-Ambos comandos abren el pipe `demo` por nombre, aunque no esten conectados con `|`.
 
 ## Atajos de teclado
 
@@ -338,7 +316,6 @@ En el prompt, presionar `Ctrl+D`. La shell interpreta EOF y vuelve a mostrar el 
 - Redireccion de `write`/`read` por file descriptors: fd[0]/fd[1] del PCB apuntan a teclado/pantalla (valores 0/1) o a un pipe (valor >= 3).
 - Comandos `cat`, `wc` y `filter` que operan sobre stdin/stdout y funcionan en pipelines.
 - Soporte de `cmd1 | cmd2` en la shell: crea pipe, lanza ambos procesos con fds correctos y espera a que terminen.
-- Pipes nombrados con `pipe_open_named`; `cat`, `wc` y `filter` pueden abrirlos por nombre para procesos lanzados por separado.
 - Soporte de `&` para ejecutar cualquier comando en background.
 - Proceso idle para cuando no hay procesos READY.
 - `Ctrl+C` para interrumpir lectura o matar foreground.
