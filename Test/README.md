@@ -13,8 +13,8 @@ Userland).
 
 ```sh
 cd Test
-make run        # prueba el memory manager por defecto (memoryManager.c)
-make buddy      # compila para el buddy allocator y...
+make run        # prueba el memory manager por defecto (Kernel/mm/memoryManager.c)
+make buddy      # compila para el buddy allocator (Kernel/mm/memoryManagerBuddy.c) y...
 ./MemoryManagerTest.out   # ...lo corre
 make valgrind   # corre bajo Valgrind (busca memory leaks)
 make clean

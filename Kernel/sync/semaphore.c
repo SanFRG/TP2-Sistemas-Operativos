@@ -20,6 +20,19 @@ typedef struct {
 } semaphore_t;
 
 static semaphore_t sem_table[MAX_SEMAPHORES];
+static uint8_t sem_table_lock = 0;
+
+static uint64_t sem_lock_acquire(void) {
+    uint64_t flags = _save_irq();
+    while (_atomic_xchg_u8(&sem_table_lock, 1) != 0) {
+    }
+    return flags;
+}
+
+static void sem_lock_release(uint64_t flags) {
+    sem_table_lock = 0;
+    _restore_irq(flags);
+}
 
 static int str_eq(const char *a, const char *b) {
     int i = 0;
@@ -150,22 +163,23 @@ void sem_system_init(void) {
 
 int sem_open(const char *name, uint64_t initial_value) {
     int idx;
+    uint64_t flags;
 
     if (!valid_name(name)) {
         return -1;
     }
 
-    _cli();
+    flags = sem_lock_acquire();
     idx = find_semaphore(name);
     if (idx >= 0) {
         sem_table[idx].ref_count++;
-        _sti();
+        sem_lock_release(flags);
         return 0;
     }
 
     idx = find_free_slot();
     if (idx < 0) {
-        _sti();
+        sem_lock_release(flags);
         return -1;
     }
 
@@ -176,28 +190,29 @@ int sem_open(const char *name, uint64_t initial_value) {
     sem_table[idx].wait_head = 0;
     sem_table[idx].wait_tail = 0;
     sem_table[idx].wait_count = 0;
-    _sti();
+    sem_lock_release(flags);
     return 0;
 }
 
 int sem_close(const char *name) {
     int idx;
     semaphore_t *sem;
+    uint64_t flags;
 
     if (!valid_name(name)) {
         return -1;
     }
 
-    _cli();
+    flags = sem_lock_acquire();
     idx = find_semaphore(name);
     if (idx < 0) {
-        _sti();
+        sem_lock_release(flags);
         return -1;
     }
 
     sem = &sem_table[idx];
     if (sem->ref_count == 0) {
-        _sti();
+        sem_lock_release(flags);
         return -1;
     }
 
@@ -207,7 +222,7 @@ int sem_close(const char *name) {
         memset(sem, 0, sizeof(*sem));
     }
 
-    _sti();
+    sem_lock_release(flags);
     return 0;
 }
 
@@ -222,6 +237,7 @@ int sem_wait(const char *name) {
     semaphore_t *sem;
     int my_pid;
     int woken = 0;   // 0 = recien llegue; 1 = me desperto un sem_post (ya fui elegido)
+    uint64_t flags;
 
     if (!valid_name(name)) {
         return -1;
@@ -237,10 +253,10 @@ int sem_wait(const char *name) {
             return -1;
         }
 
-        _cli();
+        flags = sem_lock_acquire();
         idx = find_semaphore(name);
         if (idx < 0) {
-            _sti();
+            sem_lock_release(flags);
             return -1;
         }
 
@@ -258,22 +274,22 @@ int sem_wait(const char *name) {
         if (sem->value > 0 && (woken || sem->wait_count == 0)) {
             sem->value--;
             process_sem_held_push(my_pid, idx);  // registra el token para devolverlo si muere
-            _sti();
+            sem_lock_release(flags);
             return 0;
         }
 
         if (enqueue_waiter(sem, my_pid) != 0) {
-            _sti();
+            sem_lock_release(flags);
             return -1;
         }
 
         if (process_block_current() != 0) {
             remove_waiter_from_sem(sem, my_pid);
-            _sti();
+            sem_lock_release(flags);
             return -1;
         }
 
-        _sti();
+        sem_lock_release(flags);
         _yield();
 
         /* Despertamos: sem_post nos eligio (dequeue_best_waiter) y nos cobro el
@@ -283,27 +299,28 @@ int sem_wait(const char *name) {
          * value, asi que si nos mataron recien despiertos no se pierde: lo toma el
          * proximo. */
         woken = 1;
-        _cli();
+        flags = sem_lock_acquire();
         idx = find_semaphore(name);
         if (idx >= 0) {
             remove_waiter_from_sem(&sem_table[idx], my_pid);
         }
-        _sti();
+        sem_lock_release(flags);
     }
 }
 
 int sem_post(const char *name) {
     int idx;
     semaphore_t *sem;
+    uint64_t flags;
 
     if (!valid_name(name)) {
         return -1;
     }
 
-    _cli();
+    flags = sem_lock_acquire();
     idx = find_semaphore(name);
     if (idx < 0) {
-        _sti();
+        sem_lock_release(flags);
         return -1;
     }
 
@@ -317,20 +334,20 @@ int sem_post(const char *name) {
      * proximo sem_wait. */
     while (sem->wait_count > 0) {
         int pid = dequeue_best_waiter(sem);
-        _sti();
+        sem_lock_release(flags);
         if (process_unblock(pid) == 0) {
             return 0;
         }
-        _cli();
+        flags = sem_lock_acquire();
         idx = find_semaphore(name);
         if (idx < 0 || !sem_table[idx].in_use) {
-            _sti();
+            sem_lock_release(flags);
             return -1;
         }
         sem = &sem_table[idx];
     }
 
-    _sti();
+    sem_lock_release(flags);
     return 0;
 }
 
@@ -338,9 +355,9 @@ int sem_post(const char *name) {
 // process.c al morir un proceso para devolver lo que tenia tomado). Misma
 // logica de despertar esperantes que sem_post.
 int sem_force_post_index(int sem_idx) {
-    _cli();
+    uint64_t flags = sem_lock_acquire();
     if (sem_idx < 0 || sem_idx >= MAX_SEMAPHORES || !sem_table[sem_idx].in_use) {
-        _sti();
+        sem_lock_release(flags);
         return -1;
     }
 
@@ -349,28 +366,30 @@ int sem_force_post_index(int sem_idx) {
 
     while (sem->wait_count > 0) {
         int pid = dequeue_best_waiter(sem);
-        _sti();
+        sem_lock_release(flags);
         if (process_unblock(pid) == 0) {
             return 0;
         }
-        _cli();
+        flags = sem_lock_acquire();
         if (!sem_table[sem_idx].in_use) {
-            _sti();
+            sem_lock_release(flags);
             return -1;
         }
         sem = &sem_table[sem_idx];
     }
 
-    _sti();
+    sem_lock_release(flags);
     return 0;
 }
 
 void sem_remove_waiter(int pid) {
+    uint64_t flags;
+
     if (pid <= 0) {
         return;
     }
 
-    _cli();
+    flags = sem_lock_acquire();
     for (int i = 0; i < MAX_SEMAPHORES; i++) {
         if (sem_table[i].in_use) {
             if (remove_waiter_from_sem(&sem_table[i], pid) > 0) {
@@ -380,5 +399,5 @@ void sem_remove_waiter(int pid) {
             }
         }
     }
-    _sti();
+    sem_lock_release(flags);
 }

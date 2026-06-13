@@ -1,4 +1,5 @@
 #include <memoryManager.h>
+#include <interrupts.h>
 
 #define BUDDY_MIN_ORDER 5
 #define BUDDY_MAX_ORDER 32
@@ -162,9 +163,13 @@ void *mm_alloc(uint64_t size) {
     uint8_t target_order;
     uint8_t current_order;
     buddy_block_t *block;
+    void *payload;
+    uint64_t flags;
 
+    flags = _save_irq();
     if (heap_base == 0 || size == 0) {
         failed_allocations++;
+        _restore_irq(flags);
         return 0;
     }
 
@@ -172,6 +177,7 @@ void *mm_alloc(uint64_t size) {
     required_size = requested_size + header_size_aligned;
     if (required_size > order_size(max_order)) {
         failed_allocations++;
+        _restore_irq(flags);
         return 0;
     }
 
@@ -183,6 +189,7 @@ void *mm_alloc(uint64_t size) {
 
     if (current_order > max_order) {
         failed_allocations++;
+        _restore_irq(flags);
         return 0;
     }
 
@@ -205,19 +212,29 @@ void *mm_alloc(uint64_t size) {
 
     used_bytes += order_size(target_order);
     successful_allocations++;
-    return (void *)block_payload(block);
+    payload = (void *)block_payload(block);
+    _restore_irq(flags);
+    return payload;
 }
 
 void mm_free(void *ptr) {
     buddy_block_t *block;
     uint8_t order;
+    uint64_t flags;
 
-    if (ptr == 0 || heap_base == 0) {
+    if (ptr == 0) {
+        return;
+    }
+
+    flags = _save_irq();
+    if (heap_base == 0) {
+        _restore_irq(flags);
         return;
     }
 
     if ((uint8_t *)ptr < heap_base + header_size_aligned ||
         (uint8_t *)ptr >= heap_base + heap_capacity) {
+        _restore_irq(flags);
         return;
     }
 
@@ -228,6 +245,7 @@ void mm_free(void *ptr) {
         block->free ||
         block->order < min_order ||
         block->order > max_order) {
+        _restore_irq(flags);
         return;
     }
 
@@ -269,15 +287,18 @@ void mm_free(void *ptr) {
     }
 
     push_free_block(block, order);
+    _restore_irq(flags);
 }
 
 void mm_get_status(mm_status_t *out) {
     uint64_t free_bytes = 0;
+    uint64_t flags;
 
     if (out == 0) {
         return;
     }
 
+    flags = _save_irq();
     for (uint8_t order = min_order; order <= max_order; order++) {
         buddy_block_t *current = free_lists[order];
         while (current != 0) {
@@ -292,4 +313,5 @@ void mm_get_status(mm_status_t *out) {
     out->successful_allocations = successful_allocations;
     out->successful_frees = successful_frees;
     out->failed_allocations = failed_allocations;
+    _restore_irq(flags);
 }

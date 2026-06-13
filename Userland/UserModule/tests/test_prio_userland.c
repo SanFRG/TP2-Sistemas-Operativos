@@ -5,9 +5,9 @@
 /* Portado de MemoryTest/test_prio.c de la catedra, adaptado a la API de
  * userland de este TP (create_process / nice_process / block_process /
  * unblock_process / waitpid). Demuestra que la prioridad afecta el reparto de
- * CPU: el scheduler es Round Robin y la prioridad modifica el quantum
- * (prio + 1), por lo que a mayor prioridad el proceso termina su cuenta antes
- * e imprime "DONE!" primero. */
+ * CPU: el scheduler es Round Robin ponderado y la prioridad modifica la
+ * frecuencia con la que se elige cada proceso (pesos 1/3/9), por lo que a mayor
+ * prioridad termina su cuenta antes e imprime "DONE!" primero. */
 
 #define TP_TOTAL_PROCESSES 3
 

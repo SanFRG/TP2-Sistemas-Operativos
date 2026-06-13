@@ -36,7 +36,7 @@ Este script:
 make
 ```
 
-Compila bootloader, kernel, userland e imagen final usando el memory manager por defecto (`Kernel/memoryManager.c`).
+Compila bootloader, kernel, userland e imagen final usando el memory manager por defecto (`Kernel/mm/memoryManager.c`).
 
 ```sh
 make all
@@ -48,7 +48,7 @@ Equivalente a `make`.
 make buddy
 ```
 
-Compila la imagen usando el memory manager buddy (`Kernel/memoryManagerBuddy.c`).
+Compila la imagen usando el memory manager buddy (`Kernel/mm/memoryManagerBuddy.c`).
 
 ```sh
 make clean
@@ -307,10 +307,10 @@ En el prompt, presionar `Ctrl+D`. La shell interpreta EOF y vuelve a mostrar el 
 - Buddy allocator seleccionable con `make buddy`.
 - Syscalls de memoria y comando `mem`.
 - Creacion de procesos con PCB, PID, stack propio, estado, prioridad, PPID y file descriptors basicos.
-- Context switch y scheduler Round Robin con prioridades por quantum.
+- Context switch y scheduler Round Robin ponderado por prioridad.
 - Comandos `ps`, `kill`, `nice`, `block` y `loop`.
 - `waitpid` bloqueante para hijos: el padre queda BLOCKED hasta que el hijo termina.
-- Semaforos nombrados con `sem_open`, `sem_close`, `sem_wait` y `sem_post`.
+- Semaforos nombrados con `sem_open`, `sem_close`, `sem_wait` y `sem_post`, protegidos con un lock atomico basado en `xchg`.
 - Bloqueo de procesos en `sem_wait` sin busy waiting cuando no hay recursos disponibles.
 - Pipes bloqueantes con buffer circular: `pipe_open`, `pipe_read`, `pipe_write`, cierre automatico por exit.
 - Redireccion de `write`/`read` por file descriptors: fd[0]/fd[1] del PCB apuntan a teclado/pantalla (valores 0/1) o a un pipe (valor >= 3).
@@ -331,7 +331,7 @@ En el prompt, presionar `Ctrl+D`. La shell interpreta EOF y vuelve a mostrar el 
 - Solo se soporta un pipe por linea de comando (`cmd1 | cmd2`). No hay pipes encadenados.
 - `stderr` (fd=2) siempre va a pantalla aunque fd[2] este redirigido.
 - `PCB.fd[2]` (stderr) puede redirigirse a un pipe internamente, pero los mensajes de error del kernel siempre van a pantalla.
-- El scheduler usa Round Robin circular; la prioridad modifica el quantum (`prio + 1`), no el orden absoluto de seleccion.
+- El scheduler usa Round Robin circular ponderado; la prioridad modifica la frecuencia de seleccion con pesos `{1, 3, 9}`.
 - `kill` no permite matar el proceso actual ni el proceso idle.
 - Los procesos en estado `KILLED` no se listan en `ps`.
 - Un proceso `TERMINATED` o `KILLED` cuyo padre vivo nunca llama a `waitpid` puede quedar ocupando un slot. Si el padre muere, el scheduler intenta recolectar huerfanos terminados.

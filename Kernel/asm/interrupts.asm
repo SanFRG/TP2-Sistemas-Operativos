@@ -3,6 +3,7 @@ GLOBAL _cli
 GLOBAL _sti
 GLOBAL _save_irq
 GLOBAL _restore_irq
+GLOBAL _atomic_xchg_u8
 GLOBAL picMasterMask
 GLOBAL picSlaveMask
 GLOBAL haltcpu
@@ -169,6 +170,14 @@ _save_irq:
 _restore_irq:
 	push rdi
 	popfq
+	ret
+
+; uint8_t _atomic_xchg_u8(uint8_t *ptr, uint8_t value)
+; Devuelve el valor anterior de *ptr. xchg con memoria es atomico en x86/x64.
+_atomic_xchg_u8:
+	mov al, sil
+	xchg byte [rdi], al
+	movzx rax, al
 	ret
 
 picMasterMask:

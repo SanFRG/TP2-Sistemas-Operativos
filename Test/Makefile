@@ -2,8 +2,8 @@
 # These run on the HOST, outside the kernel, to detect bugs early.
 #
 # Usage:
-#   make            -> tests the default memory manager (memoryManager.c)
-#   make buddy      -> tests the buddy memory manager (memoryManagerBuddy.c)
+#   make            -> tests the default memory manager (Kernel/mm/memoryManager.c)
+#   make buddy      -> tests the buddy memory manager (Kernel/mm/memoryManagerBuddy.c)
 #   make run        -> build and run the tests
 #   make valgrind   -> run under Valgrind to detect memory leaks
 #   make clean
@@ -19,8 +19,8 @@ CFLAGS  := -g -std=c99 -pedantic -Wall -Wextra -Wno-unused-parameter \
 LDFLAGS := -lm
 
 TARGET     := MemoryManagerTest.out
-TEST_SRC   := CuTest.c MemoryManagerTest.c AllTest.c
-MM_SRC     := $(KERNEL_DIR)/$(MM).c
+TEST_SRC   := CuTest.c MemoryManagerTest.c AllTest.c interrupts_stubs.c
+MM_SRC     := $(KERNEL_DIR)/mm/$(MM).c
 
 all: $(TARGET)
 
