@@ -1,6 +1,6 @@
-/* Syscalls de sincronizacion e IPC: semaforos nombrados (open/close/wait/post)
- * y pipes (open/close). La syscall_table (syscall_dispatcher.c) las referencia
- * por su declaracion en el header. */
+
+
+
 #include <syscall_dispatcher.h>
 #include <semaphore.h>
 #include <pipe.h>

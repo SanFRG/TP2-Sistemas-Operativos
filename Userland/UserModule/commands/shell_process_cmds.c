@@ -82,8 +82,6 @@ void shell_print_int_padded(int n, int width) {
     }
 }
 
-/* Imprime una etiqueta de columna alineada a la izquierda y rellena con
- * espacios hasta 'width', para que el header coincida con las columnas. */
 static void ps_print_label(const char *s, int width) {
     print(s);
     for (int i = strlen(s); i < width; i++) {
@@ -91,7 +89,6 @@ static void ps_print_label(const char *s, int width) {
     }
 }
 
-/* Imprime "0x" + hex y rellena con espacios hasta 'width' columnas. */
 static void ps_print_hex_field(uint64_t v, int width) {
     char buf[20];
     hexToString(v, buf);

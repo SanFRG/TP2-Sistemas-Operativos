@@ -1,7 +1,7 @@
-/* Syscalls de procesos: consultas (pid/ps), control (kill/block/unblock/nice),
- * espera (waitpid), cesion de CPU (yield), terminacion (exit), creacion (normal
- * y con pipes) y utilidades (check ctrl+c, loop_inc). La syscall_table
- * (syscall_dispatcher.c) las referencia por su declaracion en el header. */
+
+
+
+
 #include <syscall_dispatcher.h>
 #include <process.h>
 #include <keyboard.h>
@@ -44,10 +44,10 @@ uint64_t sys_yield(void) {
     return 0;
 }
 
-// SYS_EXIT: termina el proceso actual. No retorna (process_exit cede el CPU).
+
 uint64_t sys_exit(uint64_t exit_code) {
     process_exit((int)exit_code);
-    return 0;  // formal: process_exit nunca devuelve el control aca
+    return 0;
 }
 
 uint64_t sys_create_process(uint64_t name_ptr, uint64_t entry_ptr, uint64_t arg_ptr, uint64_t priority, uint64_t foreground) {

@@ -50,7 +50,7 @@ typedef struct {
     int fd_out;
 } create_proc_piped_args_t;
 
-// Register snapshot structure (must match kernel ExceptionFrame)
+
 typedef struct {
     uint64_t r15, r14, r13, r12, r11, r10, r9, r8;
     uint64_t rsi, rdi, rbp, rdx, rcx, rbx, rax;
@@ -78,27 +78,27 @@ typedef struct {
     char name[32];
 } process_info;
 
-// Syscall wrappers (implemented in asm/libasm.asm)
+
 extern uint64_t read(char* buffer, int max_len);
 extern uint64_t write(int fd, const char* str, int len);
 extern uint64_t get_time();
 extern uint64_t clear_screen(uint32_t color);
-extern void set_color(uint8_t attr);  // Set current text color (VGA attribute byte)
+extern void set_color(uint8_t attr);
 
-// Atributos de color VGA en modo texto (nibble bajo = texto, alto = fondo).
-// Se pasan a set_color() para teñir el texto que se imprima a continuacion.
-#define COLOR_DEFAULT 0x07  // gris claro sobre negro
-#define COLOR_RED     0x0C  // rojo claro
-#define COLOR_GREEN   0x02  // verde apagado (sin bit 0x08 de brillo)
-#define COLOR_CYAN    0x03  // cyan apagado (sin bit 0x08 de brillo)
-#define COLOR_YELLOW  0x0E  // amarillo
-#define COLOR_WHITE   0x0F  // blanco
+
+
+#define COLOR_DEFAULT 0x07
+#define COLOR_RED     0x0C
+#define COLOR_GREEN   0x02
+#define COLOR_CYAN    0x03
+#define COLOR_YELLOW  0x0E
+#define COLOR_WHITE   0x0F
 extern uint64_t get_ticks(void);
-extern int get_key(void);  // Returns scancode or 0 if no key pressed
-extern void sleep_ticks(int ticks);  // Sleep for specified number of ticks
-extern uint64_t speaker_play(uint32_t frequency);  // Play sound on PC speaker (Hz)
-extern uint64_t speaker_stop(void);  // Stop PC speaker sound
-extern uint64_t get_regs(RegisterSnapshot* buffer);  // Get CPU registers snapshot
+extern int get_key(void);
+extern void sleep_ticks(int ticks);
+extern uint64_t speaker_play(uint32_t frequency);
+extern uint64_t speaker_stop(void);
+extern uint64_t get_regs(RegisterSnapshot* buffer);
 extern void *mem_alloc(uint64_t size);
 extern uint64_t mem_free(void *ptr);
 extern uint64_t mem_status(MemoryStatus *status);
@@ -111,9 +111,9 @@ extern int64_t waitpid(int64_t pid);
 extern int64_t ps(process_info *buffer, uint64_t max_entries);
 extern int64_t yield_cpu(void);
 extern int64_t create_process(char *name, void (*entry_point)(void *), void *arg, uint64_t priority, uint64_t foreground);
-extern void exit_process(int exit_code);  // Termina el proceso actual (no retorna)
-extern int64_t check_ctrl_c(void);  // Returns 1 if Ctrl+C was pressed, 0 otherwise
-extern int64_t loop_inc(void);      // Increment process loop counter
+extern void exit_process(int exit_code);
+extern int64_t check_ctrl_c(void);
+extern int64_t loop_inc(void);
 extern int64_t sem_open(const char *name, uint64_t initial_value);
 extern int64_t sem_close(const char *name);
 extern int64_t sem_wait(const char *name);
@@ -123,22 +123,21 @@ extern int64_t pipe_close(int64_t pipe_id);
 extern int64_t create_process_piped_raw(create_proc_piped_args_t *args);
 int64_t create_process_piped(char *name, void (*entry)(void *), void *arg, int priority, int foreground, int fd_in, int fd_out);
 
-// String functions
+
 int strlen(const char* str);
-int strcasecmp(const char* s1, const char* s2);  // Case-insensitive compare
+int strcasecmp(const char* s1, const char* s2);
 int atoi(const char* str);
 
-// Print helpers
+
 void print(const char* str);
 void println(const char* str);
-void print_error(const char* str);    // imprime en rojo y vuelve al color por defecto
+void print_error(const char* str);
 void printInt(int num);
 void printHex(uint64_t num);
 void print2Digits(int num);
 
-// Number conversion
+
 void itoa(int num, char* buffer);
 void hexToString(uint64_t num, char* buffer);
 
-#endif // LIB_USER_H
-
+#endif

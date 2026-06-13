@@ -2,12 +2,12 @@
 #include <lib.h>
 #include <stdint.h>
 
-/* Portado de MemoryTest/test_prio.c de la catedra, adaptado a la API de
- * userland de este TP (create_process / nice_process / block_process /
- * unblock_process / waitpid). Demuestra que la prioridad afecta el reparto de
- * CPU: el scheduler es Round Robin ponderado y la prioridad modifica la
- * frecuencia con la que se elige cada proceso (pesos 1/3/9), por lo que a mayor
- * prioridad termina su cuenta antes e imprime "DONE!" primero. */
+
+
+
+
+
+
 
 #define TP_TOTAL_PROCESSES 3
 
@@ -17,12 +17,12 @@
 
 static const int tp_prio[TP_TOTAL_PROCESSES] = {TP_LOWEST, TP_MEDIUM, TP_HIGHEST};
 
-/* Valor hasta el que cuenta cada proceso. Global compartido (mismo address
- * space para todos), igual que en la version de catedra. */
+
+
 static uint64_t tp_max_value = 0;
 
-/* Cuenta de 0 a tp_max_value y avisa al terminar. El orden en que aparecen los
- * "DONE!" refleja que prioridad recibio mas CPU. */
+
+
 static void zero_to_max(void *arg) {
     (void)arg;
     volatile uint64_t value = 0;
@@ -49,17 +49,17 @@ void cmd_test_prio(int argc, char *argv[]) {
     }
     tp_max_value = (uint64_t)parsed;
 
-    /* --- Fase 1: misma prioridad --- */
+
     println("SAME PRIORITY...");
     for (int i = 0; i < TP_TOTAL_PROCESSES; i++) {
         pids[i] = create_process("zero_to_max", zero_to_max, 0, TP_MEDIUM, 0);
     }
-    /* Se espera que terminen aproximadamente al mismo tiempo. */
+
     for (int i = 0; i < TP_TOTAL_PROCESSES; i++) {
         waitpid(pids[i]);
     }
 
-    /* --- Fase 2: misma prioridad, luego se cambia --- */
+
     println("SAME PRIORITY, THEN CHANGE IT...");
     for (int i = 0; i < TP_TOTAL_PROCESSES; i++) {
         pids[i] = create_process("zero_to_max", zero_to_max, 0, TP_MEDIUM, 0);
@@ -70,12 +70,12 @@ void cmd_test_prio(int argc, char *argv[]) {
         printInt(tp_prio[i]);
         println("");
     }
-    /* Se espera que la prioridad mas alta termine primero. */
+
     for (int i = 0; i < TP_TOTAL_PROCESSES; i++) {
         waitpid(pids[i]);
     }
 
-    /* --- Fase 3: se cambia la prioridad mientras estan bloqueados --- */
+
     println("SAME PRIORITY, THEN CHANGE IT WHILE BLOCKED...");
     for (int i = 0; i < TP_TOTAL_PROCESSES; i++) {
         pids[i] = create_process("zero_to_max", zero_to_max, 0, TP_MEDIUM, 0);
@@ -87,7 +87,7 @@ void cmd_test_prio(int argc, char *argv[]) {
         printInt(tp_prio[i]);
         println("");
     }
-    /* Se desbloquean todos a la vez: arrancan con la prioridad ya seteada. */
+
     for (int i = 0; i < TP_TOTAL_PROCESSES; i++) {
         unblock_process(pids[i]);
     }

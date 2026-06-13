@@ -1,8 +1,3 @@
-/* Accesores y control sobre un proceso ya existente: consultas de pid/fd,
- * block/unblock, prioridad, tiempo virtual y loop_counter. Separado de
- * process.c (que maneja el ciclo de vida: creacion, terminacion y reaping)
- * porque estas operaciones solo tocan campos del PCB y dependen unicamente del
- * estado compartido del modulo (process_internal.h): no agregan acoplamiento. */
 #include "process.h"
 #include "process_internal.h"
 #include "interrupts.h"
@@ -21,11 +16,9 @@ int process_get_current_fd(int fd_index) {
 
 int process_block(int pid) {
     PCB *p = get_process_by_pid(pid);
-    if (p == NULL || pid == idle_pid) {  // al idle no se lo bloquea
+    if (p == NULL || pid == idle_pid) {
         return -1;
     }
-    // Solo se puede bloquear algo que corre o esta listo para correr.
-    // Ya BLOCKED / KILLED / TERMINATED -> no hay nada que hacer.
     if (p->state != READY && p->state != RUNNING) {
         return -1;
     }
@@ -33,7 +26,7 @@ int process_block(int pid) {
     p->state = BLOCKED;
 
     if (pid == current_pid) {
-        _yield();   // si me bloquee a mi mismo, cedo el CPU ya mismo
+        _yield();
     }
     return 0;
 }
@@ -70,9 +63,6 @@ int process_set_priority(int pid, int new_priority) {
         new_priority = MAX_PRIORITY;
     }
     p->priority = new_priority;
-    // Reflejar el nuevo peso ya mismo: le damos una ronda completa con la
-    // prioridad recien seteada para que el efecto se vea sin esperar al
-    // proximo refill.
     p->sched_credits = weight_for(p);
     return 0;
 }
@@ -80,7 +70,7 @@ int process_set_priority(int pid, int new_priority) {
 uint64_t process_get_vtime(int pid) {
     PCB *p = get_process_by_pid(pid);
     if (p == NULL) {
-        return ~0ULL;   // inexistente: vtime maximo -> nunca es el minimo
+        return ~0ULL;
     }
     return p->sched_vtime;
 }
@@ -90,9 +80,6 @@ void process_charge_vtime(int pid) {
     if (p == NULL) {
         return;
     }
-    // Avance = 9/peso. Con pesos {1,3,9} da {9,3,1}: a mayor prioridad, menor
-    // avance -> el vtime crece mas lento -> es elegido mas seguido. El 9 es el
-    // peso maximo, asi que el avance minimo es 1 (sin division por cero).
     p->sched_vtime += (uint64_t)(9 / weight_for(p));
 }
 

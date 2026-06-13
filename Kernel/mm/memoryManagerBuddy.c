@@ -26,7 +26,7 @@ static uint64_t successful_allocations = 0;
 static uint64_t successful_frees = 0;
 static uint64_t failed_allocations = 0;
 
-static uint64_t align8(uint64_t size) { //TODO:hay funciones que comparte con el memorymanager. podriamos ver de no duplicarlos
+static uint64_t align8(uint64_t size) {
     return (size + 7ULL) & ~7ULL;
 }
 

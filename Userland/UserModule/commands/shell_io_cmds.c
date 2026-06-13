@@ -13,9 +13,6 @@ void cmd_cat(int argc, char *argv[]) {
     }
 }
 
-/*
- * wc: cuenta la cantidad de lineas del input.
- */
 void cmd_wc(int argc, char *argv[]) {
     (void)argc;
     (void)argv;
@@ -50,9 +47,6 @@ static int is_vowel(char c) {
            c == 'A' || c == 'E' || c == 'I' || c == 'O' || c == 'U';
 }
 
-/*
- * filter: filtra las vocales del input (las elimina, pasa el resto).
- */
 void cmd_filter(int argc, char *argv[]) {
     (void)argc;
     (void)argv;

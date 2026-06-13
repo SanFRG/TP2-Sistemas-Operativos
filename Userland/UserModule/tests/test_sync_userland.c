@@ -13,9 +13,9 @@ typedef struct {
 
 static int64_t shared_value = 0;
 
-/* RNG entero (Marsaglia MWC), igual que GetUint de la catedra. Sin punto
- * flotante: el kernel compila con -mno-sse y no guarda FPU en el context
- * switch. */
+
+
+
 static uint32_t sync_rand_z = 362436069U;
 static uint32_t sync_rand_w = 521288629U;
 
@@ -25,7 +25,7 @@ static uint32_t sync_rand_u32(void) {
     return (sync_rand_z << 16) + sync_rand_w;
 }
 
-/* Entero uniforme en [0, max). */
+
 static uint32_t sync_uniform(uint32_t max) {
     if (max == 0) {
         return 0;
@@ -35,9 +35,9 @@ static uint32_t sync_uniform(uint32_t max) {
 
 static void slow_inc(int64_t *value, int delta) {
     int64_t aux = *value;
-    /* ~30% de probabilidad de ceder el CPU en plena lectura-modificacion-
-     * escritura: hace muy probable la condicion de carrera sin semaforo,
-     * tal como el slowInc de la catedra (GetUniform(100) < 30). */
+
+
+
     if (sync_uniform(100) < 30) {
         yield_cpu();
     }
@@ -72,10 +72,10 @@ static void sync_worker_entry(void *arg) {
     }
 }
 
-/* Parametros (segun enunciado): <pares> <iteraciones> <use_sem: 0|1>.
- * Crea <pares> pares de procesos; en cada par uno incrementa y otro decrementa
- * <iteraciones> veces la variable global compartida. Con semaforo el resultado
- * final es siempre 0; sin semaforo varia por la condicion de carrera. */
+
+
+
+
 void cmd_test_sync(int argc, char *argv[]) {
     sync_worker_args_t args[TEST_SYNC_MAX_PAIRS * 2];
     int64_t pids[TEST_SYNC_MAX_PAIRS * 2];
@@ -130,7 +130,7 @@ void cmd_test_sync(int argc, char *argv[]) {
         }
     }
 
-    /* Espera (y limpia) a todos los procesos que si se crearon. */
+
     for (int i = 0; i < total; i++) {
         if (pids[i] >= 0) {
             waitpid(pids[i]);

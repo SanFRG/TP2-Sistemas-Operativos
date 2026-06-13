@@ -34,7 +34,6 @@ int shell_parse_line(char *line, ShellCommandLine *command) {
         if (*p == '|') {
             command->has_pipe = 1;
             p++;
-            /* parse right-hand side of pipe into argv2 */
             while (*p == ' ') p++;
             while (*p != '\0' && command->argc2 < SHELL_MAX_ARGS - 1) {
                 while (*p == ' ') p++;

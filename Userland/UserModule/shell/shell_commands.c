@@ -1,6 +1,3 @@
-/* Catalogo de comandos de la shell: la tabla nombre -> handler, su ayuda
- * (cmd_help) y el lookup (find_cmd_fn) que usa el motor de ejecucion
- * (shell_exec.c). */
 #include <shell.h>
 #include <shell_internal.h>
 #include <lib.h>

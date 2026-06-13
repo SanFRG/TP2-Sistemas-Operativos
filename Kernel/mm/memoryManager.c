@@ -84,7 +84,6 @@ void mm_init(void *heap_start, uint64_t heap_size) {
 
     header_size_aligned = align8(sizeof(block_header_t));
     heap_base = (uint8_t *)heap_start;
-    /* Never grow heap beyond the reserved region. */
     aligned_capacity = align8_down(heap_size);
     heap_capacity = aligned_capacity;
     heap_limit = heap_base + heap_capacity;
@@ -106,11 +105,6 @@ void mm_init(void *heap_start, uint64_t heap_size) {
     first_block->next = 0;
 }
 
-/* Las operaciones recorren y modifican la lista de bloques, que es estado
- * global compartido. Como mm_alloc/mm_free se llaman tanto desde contexto de
- * proceso (syscalls) como desde el scheduler en contexto de interrupcion
- * (clean_orphan libera stacks de huerfanos), se protegen con irqsave/irqrestore
- * para que no se pisen entre si y corrompan la lista. */
 void *mm_alloc(uint64_t size) {
     uint64_t requested_size;
     block_header_t *current;

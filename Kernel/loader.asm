@@ -3,8 +3,8 @@ extern main
 extern initializeKernelBinary
 
 loader:
-	call initializeKernelBinary	
-	mov rsp, rax				
+	call initializeKernelBinary
+	mov rsp, rax
 	call main
 hang:
 	cli

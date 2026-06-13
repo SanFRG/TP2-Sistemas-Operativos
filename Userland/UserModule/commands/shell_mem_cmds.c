@@ -19,9 +19,6 @@ static uint32_t mm_rand_u32(void) {
     return (mm_rand_z << 16) + mm_rand_w;
 }
 
-/* Devuelve un entero uniforme en [0, max). Aritmetica entera de 64 bits para
- * evitar punto flotante: el kernel compila con -mno-sse y no guarda el estado
- * x87/FPU en el context switch. */
 static uint32_t mm_uniform(uint32_t max) {
     if (max == 0) {
         return 0;
@@ -194,17 +191,13 @@ void cmd_test_mm(int argc, char *argv[]) {
     }
     max_memory = (uint32_t)parsed;
 
-    /* Bucle infinito como el test de la catedra: pide bloques de tamanio
-     * aleatorio hasta llenar max_memory, los escribe, verifica que no se
-     * solapen (cada bloque lleva un valor unico) y los libera. Solo imprime
-     * si detecta un error. Se corta con Ctrl+C o 'kill'. */
     while (1) {
         rq = 0;
         total = 0;
 
         while (rq < MAX_MM_BLOCKS && total < max_memory) {
             uint32_t remaining = max_memory - total;
-            uint32_t size = mm_uniform(remaining - 1) + 1;  /* [1, remaining-1] */
+            uint32_t size = mm_uniform(remaining - 1) + 1;
 
             reqs[rq].address = mem_alloc(size);
             if (reqs[rq].address != 0) {
@@ -212,7 +205,7 @@ void cmd_test_mm(int argc, char *argv[]) {
                 total += size;
                 rq++;
             } else {
-                break;  /* sin memoria: cerramos esta ronda */
+                break;
             }
         }
 

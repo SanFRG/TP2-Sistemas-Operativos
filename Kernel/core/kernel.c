@@ -1,5 +1,5 @@
 #include <stdint.h>
-#include <lib.h>  
+#include <lib.h>
 #include <moduleLoader.h>
 #include <keyboard.h>
 #include <idtLoader.h>
@@ -22,8 +22,8 @@ static void * const userCodeModuleAddress = (void*)0x400000;
 static void * const userDataModuleAddress = (void*)0x500000;
 static const uint64_t heapAlignment = 8;
 
-// RSP del stack en el momento de llamar a userland, usado para resetear
-// el stack al recuperarse de una excepcion
+
+
 uint64_t userland_entry_rsp = 0;
 
 static uint64_t align_up(uint64_t value, uint64_t alignment) {
@@ -42,8 +42,8 @@ void * getStackBase()
 {
 	return (void*)(
 		(uint64_t)&endOfKernel
-		+ PageSize * 8				//The size of the stack
-		- sizeof(uint64_t)			//Begin at the top of the stack
+		+ PageSize * 8
+		- sizeof(uint64_t)
 	);
 }
 
@@ -65,10 +65,10 @@ int main(){
 	uint64_t heap_start = align_up((uint64_t)&endOfKernel + (PageSize * 8), heapAlignment);
 	uint64_t heap_end = (uint64_t)userCodeModuleAddress;
 
-	// Inicializar interrupciones
+
 	load_idt();
-	
-	/* Reserve memory between end of kernel and user module for the memory manager. */
+
+
 	if (heap_end > heap_start) {
 		mm_init((void *)heap_start, heap_end - heap_start);
 	} else {
@@ -80,15 +80,15 @@ int main(){
 	pipe_system_init();
 	pcb_set_current("shell", 1, 1, 0);
 
-	// Capturar RSP antes del call para poder resetearlo en recuperacion de excepciones.
-	// Se resta 8 porque la instruccion call empuja la direccion de retorno al stack.
+
+
 	uint64_t rsp_now;
 	__asm__ volatile("mov %%rsp, %0" : "=r"(rsp_now));
 	userland_entry_rsp = rsp_now - 8;
 
-	// Iniciar userland (shell)
+
 	((EntryPoint)userCodeModuleAddress)();
-	
+
 	haltcpu();
 
 	return 0;

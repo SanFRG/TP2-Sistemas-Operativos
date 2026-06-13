@@ -8,11 +8,11 @@
 #define SEM_NAME_LEN 32
 #define MAX_WAITERS MAX_PROCESSES
 
-typedef struct { 
-    uint8_t in_use; //indica si el semaforo esta en uso o no, para saber si se puede usar ese slot o no
+typedef struct {
+    uint8_t in_use;
     char name[SEM_NAME_LEN];
-    int64_t value; //valor que cuenta lo de post y wait (negativos, cero o uno)
-    uint64_t ref_count; //cuenta cuantas veces se ha abierto el semaforo, para saber cuando eliminarlo
+    int64_t value;
+    uint64_t ref_count;
     int waiters[MAX_WAITERS];
     int wait_head;
     int wait_tail;
@@ -92,14 +92,6 @@ static int enqueue_waiter(semaphore_t *sem, int pid) {
 
 static int remove_waiter_from_sem(semaphore_t *sem, int pid);
 
-// Elige a quien despertar con weighted fair queueing por tiempo virtual:
-// saca de la cola al esperante con MENOR vtime (a igual vtime, el que llego
-// primero -> FIFO) y le cobra el avance de vtime segun su peso. Como el avance
-// es 9/peso, los de mayor prioridad acumulan vtime mas lento y por ende son
-// elegidos mas seguido, pero de forma PROPORCIONAL: con pesos {3,3} se turnan
-// (ABAB), con {9,3} el de peso 9 sale ~3 de cada 4 veces (ABBB) sin que el
-// otro sufra starvation. Esto es lo que hace que subir la prioridad de un
-// writer en mvar lo haga aparecer mas, sin monopolizar la salida.
 static int dequeue_best_waiter(semaphore_t *sem) {
     int best_pid;
     uint64_t best_vtime;
@@ -114,16 +106,13 @@ static int dequeue_best_waiter(semaphore_t *sem) {
         int pos = (sem->wait_head + i) % MAX_WAITERS;
         int pid = sem->waiters[pos];
         uint64_t vtime = process_get_vtime(pid);
-        if (vtime < best_vtime) {   // estricto: a igual vtime gana el de mas atras (FIFO)
+        if (vtime < best_vtime) {
             best_vtime = vtime;
             best_pid = pid;
         }
     }
 
-    process_charge_vtime(best_pid);   // avanza su vtime segun el peso/prioridad
-
-    // remove_waiter_from_sem compacta la cola y saca a best_pid (aparece una
-    // sola vez). Reusa la logica ya probada en lugar de mover indices a mano.
+    process_charge_vtime(best_pid);
     remove_waiter_from_sem(sem, best_pid);
     return best_pid;
 }
@@ -226,17 +215,11 @@ int sem_close(const char *name) {
     return 0;
 }
 
-/* Semaforo basado en value (no en handoff directo): el "token" vive siempre en
- * sem->value. sem_post incrementa value y despierta a un esperante para que
- * REINTENTE tomarlo; el esperante, al despertar, vuelve a chequear value. Asi,
- * si se mata a un proceso recien despertado (READY pero que todavia no corrio),
- * el token no se pierde: value quedo incrementado y lo toma otro. Esto evita el
- * deadlock al matar procesos que usan semaforos (p. ej. mvar). */
 int sem_wait(const char *name) {
     int idx;
     semaphore_t *sem;
     int my_pid;
-    int woken = 0;   // 0 = recien llegue; 1 = me desperto un sem_post (ya fui elegido)
+    int woken = 0;
     uint64_t flags;
 
     if (!valid_name(name)) {
@@ -262,18 +245,9 @@ int sem_wait(const char *name) {
 
         sem = &sem_table[idx];
 
-        /* Regla ANTI-BARGING (semaforo justo): un recien llegado (woken==0) solo
-         * se queda con el token si NO hay nadie esperando en la cola. Si hay
-         * esperantes, NO se cuela: se encola y respeta el orden justo (vtime/FIFO
-         * que aplica dequeue_best_waiter). Sin esta regla, el proceso de menor PID
-         * -que el scheduler corre primero cada tick- ganaba siempre la carrera del
-         * fast-path y le robaba el token al que sem_post acababa de despertar desde
-         * la cola, monopolizando la salida (en mvar, un lector imprimia ~4x mas).
-         * En cambio, si a MI me desperto un sem_post (woken==1), el token es mio: lo
-         * tomo aunque queden otros en cola, porque ya fui el elegido. */
         if (sem->value > 0 && (woken || sem->wait_count == 0)) {
             sem->value--;
-            process_sem_held_push(my_pid, idx);  // registra el token para devolverlo si muere
+            process_sem_held_push(my_pid, idx);
             sem_lock_release(flags);
             return 0;
         }
@@ -292,12 +266,6 @@ int sem_wait(const char *name) {
         sem_lock_release(flags);
         _yield();
 
-        /* Despertamos: sem_post nos eligio (dequeue_best_waiter) y nos cobro el
-         * vtime. Marcamos woken=1 para tener prioridad sobre los recien llegados al
-         * reintentar tomar el token. Nos sacamos de la cola por las dudas (tambien
-         * podrian habernos despertado con block/unblock directo). El token vive en
-         * value, asi que si nos mataron recien despiertos no se pierde: lo toma el
-         * proximo. */
         woken = 1;
         flags = sem_lock_acquire();
         idx = find_semaphore(name);
@@ -308,11 +276,6 @@ int sem_wait(const char *name) {
     }
 }
 
-/* Despierta a los esperantes del semaforo 'idx' despues de incrementar su
- * value. Debe invocarse con sem_table_lock tomado; SIEMPRE retorna con el lock
- * liberado. Recorre la cola eligiendo al mas justo (dequeue_best_waiter) hasta
- * lograr desbloquear a uno; saltea pids muertos (no deberian quedar en la cola
- * porque process_kill los limpia, pero por las dudas). */
 static int sem_wake_waiters(int idx, uint64_t flags) {
     semaphore_t *sem = &sem_table[idx];
     while (sem->wait_count > 0) {
@@ -348,15 +311,12 @@ int sem_post(const char *name) {
         return -1;
     }
 
-    process_sem_held_release(process_get_current_pid(), idx);  // ya no debo este token
-    sem_table[idx].value++;   /* el token queda en value, no se entrega "en mano" */
+    process_sem_held_release(process_get_current_pid(), idx);
+    sem_table[idx].value++;
 
     return sem_wake_waiters(idx, flags);
 }
 
-// Postea un semaforo por indice, sin tocar el tracking de tokens (lo usa
-// process.c al morir un proceso para devolver lo que tenia tomado). Misma
-// logica de despertar esperantes que sem_post.
 int sem_force_post_index(int sem_idx) {
     uint64_t flags = sem_lock_acquire();
     if (sem_idx < 0 || sem_idx >= MAX_SEMAPHORES || !sem_table[sem_idx].in_use) {

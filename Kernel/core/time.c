@@ -26,13 +26,13 @@ void sleep(int ticksEsperar) {
     }
 }
 
-static uint8_t bcd_to_bin(uint8_t value) {  //paso a bin porque qemu usa bcd
+static uint8_t bcd_to_bin(uint8_t value) {
     return (value & 0x0F) + ((value >> 4) * 10);
 }
 
 Time getTime(void) {
     Time t;
-    // Convertir BCD a decimal (QEMU devuelve BCD)
+
     t.seconds = bcd_to_bin(rtc_get_seconds());
     t.minutes = bcd_to_bin(rtc_get_minutes());
     t.hours   = bcd_to_bin(rtc_get_hours());
@@ -40,9 +40,9 @@ Time getTime(void) {
     t.month   = bcd_to_bin(rtc_get_month());
     t.year    = bcd_to_bin(rtc_get_year());
 
-    // Ajuste UTC-3 (Argentina) --> ver si queremos mantener esto o no !!!!!!!!
+
     if (t.hours < 3) {
-        t.hours = t.hours + 24 - 3; 
+        t.hours = t.hours + 24 - 3;
         if (t.day == 1) {
             t.day = 30;
             if (t.month == 1) {
@@ -60,5 +60,3 @@ Time getTime(void) {
 
     return t;
 }
-
-//Este archivo, sabe o se fija cuánto timepo pasó desde que se prendio el sistema

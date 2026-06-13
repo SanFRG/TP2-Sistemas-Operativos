@@ -3,7 +3,7 @@
 
 #define NULL ((void*)0)
 
-// String length
+
 int strlen(const char* str) {
     int len = 0;
     while (str[len] != '\0') {
@@ -12,7 +12,7 @@ int strlen(const char* str) {
     return len;
 }
 
-// Helper: convert to lowercase
+
 static char to_lower(char c) {
     if (c >= 'A' && c <= 'Z') {
         return c + ('a' - 'A');
@@ -20,7 +20,7 @@ static char to_lower(char c) {
     return c;
 }
 
-// String compare (case-insensitive)
+
 int strcasecmp(const char* s1, const char* s2) {
     while (*s1 && *s2) {
         char c1 = to_lower(*s1);
@@ -36,33 +36,33 @@ int strcasecmp(const char* s1, const char* s2) {
     return to_lower(*s1) - to_lower(*s2);
 }
 
-// Print string
+
 void print(const char* str) {
     int len = strlen(str);
     write(1, str, len);
 }
 
-// Print string with newline
+
 void println(const char* str) {
     print(str);
     print("\n");
 }
 
-// Print an error line in red, then restore the default color
+
 void print_error(const char* str) {
     set_color(COLOR_RED);
     println(str);
     set_color(COLOR_DEFAULT);
 }
 
-// Print integer
+
 void printInt(int num) {
     char buffer[20];
     itoa(num, buffer);
     print(buffer);
 }
 
-// Print hex
+
 void printHex(uint64_t num) {
     char buffer[20];
     hexToString(num, buffer);
@@ -70,7 +70,7 @@ void printHex(uint64_t num) {
     print(buffer);
 }
 
-// Convert string to integer
+
 int atoi(const char *str) {
     int result = 0;
     int sign = 1;
@@ -84,33 +84,33 @@ int atoi(const char *str) {
     return sign * result;
 }
 
-// Convert integer to string
+
 void itoa(int num, char* buffer) {
     if (num == 0) {
         buffer[0] = '0';
         buffer[1] = '\0';
         return;
     }
-    
+
     int is_negative = 0;
     if (num < 0) {
         is_negative = 1;
         num = -num;
     }
-    
+
     int i = 0;
     while (num > 0) {
         buffer[i++] = '0' + (num % 10);
         num /= 10;
     }
-    
+
     if (is_negative) {
         buffer[i++] = '-';
     }
-    
+
     buffer[i] = '\0';
-    
-    // Reverse the string
+
+
     int start = 0;
     int end = i - 1;
     while (start < end) {
@@ -122,24 +122,24 @@ void itoa(int num, char* buffer) {
     }
 }
 
-// Convert hex to string
+
 void hexToString(uint64_t num, char* buffer) {
     const char hex_chars[] = "0123456789ABCDEF";
-    
+
     if (num == 0) {
         buffer[0] = '0';
         buffer[1] = '\0';
         return;
     }
-    
+
     int i = 0;
     while (num > 0) {
         buffer[i++] = hex_chars[num % 16];
         num /= 16;
     }
     buffer[i] = '\0';
-    
-    // Reverse
+
+
     int start = 0;
     int end = i - 1;
     while (start < end) {
@@ -151,7 +151,7 @@ void hexToString(uint64_t num, char* buffer) {
     }
 }
 
-// Print two-digit number (with leading zero if needed)
+
 void print2Digits(int num) {
     char buffer[3];
     buffer[0] = '0' + (num / 10);
@@ -171,4 +171,4 @@ int64_t create_process_piped(char *name, void (*entry)(void *), void *arg,
     args.fd_in = fd_in;
     args.fd_out = fd_out;
     return create_process_piped_raw(&args);
-}   
+}

@@ -5,48 +5,48 @@
 #include <exceptions.h>
 #include <memoryManager.h>
 
-// Syscall numbers
+
 enum {
-    SYS_READ = 0,      // Read from stdin (keyboard)
-    SYS_WRITE = 1,     // Write to stdout (screen) - auto cursor
-    SYS_CLEAR = 2,     // Clear screen
-    SYS_TIME = 3,      // Get current time/date
-    SYS_TICKS = 4,     // Get system ticks
-    SYS_GET_KEY = 5,   // Get key non-blocking (returns 0 if no key)
-    SYS_SLEEP = 6,     // Sleep for specified ticks
-    SYS_SPEAKER_PLAY = 7,  // Play sound on PC speaker (frequency in Hz)
-    SYS_SPEAKER_STOP = 8,  // Stop PC speaker sound
-    SYS_GET_REGS = 9,      // Get current CPU registers snapshot
-    SYS_MEM_ALLOC = 10,    // Allocate memory
-    SYS_MEM_FREE = 11,     // Free memory
-    SYS_MEM_STATUS = 12,   // Query allocator status
-    SYS_GETPID = 13,       // Get current PID
-    SYS_KILL = 14,         // Kill process by PID
-    SYS_BLOCK = 15,        // Block process by PID
-    SYS_UNBLOCK = 16,      // Unblock process by PID
-    SYS_NICE = 17,         // Change process priority
-    SYS_WAITPID = 18,      // Wait for process termination
-    SYS_PS = 19,           // List process table
-    SYS_YIELD = 20,        // Yield CPU voluntarily
-    SYS_CREATE_PROCESS = 21, // Create process
-    SYS_EXIT = 22,           // Terminate current process
-    SYS_CHECK_CTRL_C = 23,   // Check and clear Ctrl+C flag
-    SYS_LOOP_INC = 24,        // Increment loop counter for current process
-    SYS_SEM_OPEN = 25,       // Open/create named semaphore
-    SYS_SEM_CLOSE = 26,      // Close named semaphore
-    SYS_SEM_WAIT = 27,       // Wait/down on semaphore
-    SYS_SEM_POST = 28,       // Post/up semaphore
-    SYS_PIPE_OPEN = 29,      // Create pipe; returns pipe_id
-    SYS_CREATE_PROCESS_PIPED = 30, // Create process with custom fd_in/fd_out
-    SYS_PIPE_CLOSE = 31,     // Close both ends of a pipe and free the slot
-    SYS_SET_COLOR = 32,      // Set current text color (VGA attribute byte)
+    SYS_READ = 0,
+    SYS_WRITE = 1,
+    SYS_CLEAR = 2,
+    SYS_TIME = 3,
+    SYS_TICKS = 4,
+    SYS_GET_KEY = 5,
+    SYS_SLEEP = 6,
+    SYS_SPEAKER_PLAY = 7,
+    SYS_SPEAKER_STOP = 8,
+    SYS_GET_REGS = 9,
+    SYS_MEM_ALLOC = 10,
+    SYS_MEM_FREE = 11,
+    SYS_MEM_STATUS = 12,
+    SYS_GETPID = 13,
+    SYS_KILL = 14,
+    SYS_BLOCK = 15,
+    SYS_UNBLOCK = 16,
+    SYS_NICE = 17,
+    SYS_WAITPID = 18,
+    SYS_PS = 19,
+    SYS_YIELD = 20,
+    SYS_CREATE_PROCESS = 21,
+    SYS_EXIT = 22,
+    SYS_CHECK_CTRL_C = 23,
+    SYS_LOOP_INC = 24,
+    SYS_SEM_OPEN = 25,
+    SYS_SEM_CLOSE = 26,
+    SYS_SEM_WAIT = 27,
+    SYS_SEM_POST = 28,
+    SYS_PIPE_OPEN = 29,
+    SYS_CREATE_PROCESS_PIPED = 30,
+    SYS_PIPE_CLOSE = 31,
+    SYS_SET_COLOR = 32,
     SYS_COUNT = 33
 };
 
-// Tabla de syscalls (array de punteros, accedida desde int 0x80)
+
 extern void* syscall_table[];
 
-// Syscall handlers
+
 uint64_t sys_read(uint64_t buffer, uint64_t max_len);
 uint64_t sys_write(uint64_t fd, uint64_t str_ptr, uint64_t length);
 uint64_t sys_clear(uint64_t color);

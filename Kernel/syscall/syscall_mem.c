@@ -1,6 +1,6 @@
-/* Syscalls del memory manager: alloc, free y consulta de estado.
- * La syscall_table (syscall_dispatcher.c) las referencia por su declaracion
- * en el header. */
+
+
+
 #include <syscall_dispatcher.h>
 #include <memoryManager.h>
 

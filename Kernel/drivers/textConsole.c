@@ -105,4 +105,3 @@ void tc_write(const char *str, uint64_t length) {
         tc_put_char(str[i]);
     }
 }
-

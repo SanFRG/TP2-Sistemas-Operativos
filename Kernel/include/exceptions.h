@@ -3,9 +3,9 @@
 
 #include <stdint.h>
 
-// Estructura que representa el stack frame con todos los registros de la CPU
-// Los registros están en el orden en que pushState los guarda
-// Se usa en excepciones, syscalls e interrupciones
+
+
+
 typedef struct {
 	uint64_t r15;
 	uint64_t r14;

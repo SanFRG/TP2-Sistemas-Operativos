@@ -30,8 +30,8 @@ typedef struct {
     char argv[SHELL_MAX_ARGS][SHELL_ARG_MAX];
 } bg_cmd_args_t;
 
-// Tipo de un handler de comando. La tabla de comandos vive en shell_commands.c;
-// find_cmd_fn la consulta y la usa el motor de ejecucion (shell_exec.c).
+
+
 typedef void (*shell_cmd_fn_t)(int, char **);
 
 extern int shell_exit;
@@ -40,7 +40,7 @@ extern char buffer[SHELL_BUFFER_SIZE];
 
 int shell_parse_line(char *line, ShellCommandLine *command);
 void shell_execute_command(void);
-shell_cmd_fn_t find_cmd_fn(char *name);  // lookup en la tabla de shell_commands.c
+shell_cmd_fn_t find_cmd_fn(char *name);
 void shell_set_foreground_pid(int pid);
 const char *shell_process_state_name(int state);
 void shell_print_int_padded(int n, int width);

@@ -72,7 +72,7 @@ SECTION .text
 %endmacro
 
 %macro saveUserSnapshot 0
-	; Guardar registros en el MISMO ORDEN que RegisterFrame
+
 	mov qword [user_snapshot + 0*8], r15
 	mov qword [user_snapshot + 1*8], r14
 	mov qword [user_snapshot + 2*8], r13
@@ -89,8 +89,6 @@ SECTION .text
 	mov qword [user_snapshot + 13*8], rbx
 	mov qword [user_snapshot + 14*8], rax
 
-	; Guardar rip, cs, rflags, rsp, ss (pusheados por la CPU en el stack)
-	; r10 se usa como scratch; al terminar se restaura desde user_snapshot
 	mov r10, [rsp]
 	mov qword [user_snapshot + 15*8], r10
 	mov r10, [rsp + 8]
@@ -102,7 +100,6 @@ SECTION .text
 	mov r10, [rsp + 32]
 	mov qword [user_snapshot + 19*8], r10
 
-	; Restaurar r10 al valor original del usuario (antes de usarlo como scratch)
 	mov r10, qword [user_snapshot + 5*8]
 
 	mov byte [snapshot_ready], 1
@@ -110,19 +107,18 @@ SECTION .text
 
 %macro irqHandlerMaster 1
 	pushState
-	
+
 	mov byte [esc_pressed], 0
 
-	mov rdi, %1      ; ParÃƒÂ¡metro: nÃƒÂºmero de IRQ
+	; rdi = IRQ number
+	mov rdi, %1
 	call irqDispatcher
 
-	; signal pic EOI (End of Interrupt)
 	mov al, 20h
 	out 20h, al
 
 	popState
-	
-	; DespuÃƒÂ©s de popState, verificar si se presionÃƒÂ³ ESC
+
 	cmp byte [esc_pressed], 1
 	jne .skip_snapshot
 	saveUserSnapshot
@@ -134,8 +130,9 @@ SECTION .text
 %macro exceptionHandler 1
 	pushState
 
-	mov rdi, %1      ; primer parÃƒÂ¡metro: nÃƒÂºmero de excepciÃƒÂ³n
-	mov rsi, rsp     ; segundo parÃƒÂ¡metro: puntero a los registros guardados (ExceptionFrame)
+	; rdi = exception number, rsi = saved register frame
+	mov rdi, %1
+	mov rsi, rsp
 	call exceptionDispatcher
 
 	popState
@@ -156,25 +153,23 @@ _sti:
 	sti
 	ret
 
-; uint64_t _save_irq(void): devuelve RFLAGS actual y deshabilita interrupciones.
-; Sirve como "irqsave": si ya venian deshabilitadas (estamos en un handler),
-; el flag guardado tendra IF=0 y _restore_irq las dejara deshabilitadas.
+
 _save_irq:
 	pushfq
 	pop rax
 	cli
 	ret
 
-; void _restore_irq(uint64_t flags): restaura RFLAGS (incluye el bit IF) desde
-; el valor que devolvio _save_irq.
+
 _restore_irq:
+	; rdi = saved RFLAGS
 	push rdi
 	popfq
 	ret
 
-; uint8_t _atomic_xchg_u8(uint8_t *ptr, uint8_t value)
-; Devuelve el valor anterior de *ptr. xchg con memoria es atomico en x86/x64.
+
 _atomic_xchg_u8:
+	; rdi = uint8_t *ptr, rsi = new value; returns old value in rax
 	mov al, sil
 	xchg byte [rdi], al
 	movzx rax, al
@@ -183,6 +178,7 @@ _atomic_xchg_u8:
 picMasterMask:
 	push rbp
     mov rbp, rsp
+	; rdi = PIC master mask
     mov ax, di
     out	21h,al
     pop rbp
@@ -191,91 +187,85 @@ picMasterMask:
 picSlaveMask:
 	push    rbp
     mov     rbp, rsp
-    mov     ax, di 
+	; rdi = PIC slave mask
+    mov     ax, di
     out	0A1h,al
     pop     rbp
     retn
 
 
-;Timer Tick - hace el cambio de contexto (scheduler)
 _irq00Handler:
-	pushState                 ; guarda los 15 GPR del proceso interrumpido
+	pushState
 
+	; rdi = IRQ number
 	mov rdi, 0
-	call irqDispatcher        ; tick del timer (getTicks, sleep, etc.)
+	call irqDispatcher
 
-	mov al, 20h               ; EOI al PIC master
-	out 20h, al				  
+	mov al, 20h
+	out 20h, al
 
-	; En este punto rsp apunta al contexto completo del proceso actual
-	; ([r15..rax | RIP,CS,RFLAGS,RSP,SS]). Se lo pasamos al scheduler.
+	; rdi = current saved rsp; scheduler returns next rsp in rax
 	mov rdi, rsp
-	call scheduler_switch     ; devuelve en rax el rsp del proximo proceso
-	mov rsp, rax              ; <-- CAMBIO DE CONTEXTO: cambiar de stack
+	call scheduler_switch
+	mov rsp, rax
 
-	popState                  ; restaura los GPR del proceso elegido
-	iretq                     ; restaura RIP/CS/RFLAGS/RSP/SS del elegido
+	popState
+	iretq
 
-;Keyboard
+
 _irq01Handler:
 	irqHandlerMaster 1
 
-;Cascade pic never called
+
 _irq02Handler:
 	irqHandlerMaster 2
 
-;Serial Port 2 and 4
+
 _irq03Handler:
 	irqHandlerMaster 3
 
-;Serial Port 1 and 3
+
 _irq04Handler:
 	irqHandlerMaster 4
 
-;USB
+
 _irq05Handler:
 	irqHandlerMaster 5
 
-SYS_COUNT equ 33   ; debe coincidir con SYS_COUNT en syscall_dispatcher.h
+SYS_COUNT equ 33
 
-; Syscall (int 0x80) - Llama directamente desde tabla de punteros
+
 _irq80Handler:
 	pushState
 
-	; Validar que el numero de syscall sea valido (rax < SYS_COUNT)
+	; rax = syscall number
 	cmp rax, SYS_COUNT
 	jae .invalid_syscall
 
-	; Cargar direccion del handler desde la tabla
+	; syscall_table[rax] returns value in rax
 	mov r10, syscall_table
 	mov r10, [r10 + rax * 8]
 
 	call r10
 
-	; El resultado esta en rax, guardarlo en el stack para que popState lo restaure
+	; saved rax slot becomes userland return value
 	mov [rsp + 14*8], rax
 
-	; Checkpoint de terminacion: si a este proceso lo mataron (kill_pending)
-	; mientras corria, aprovechamos el retorno de CUALQUIER syscall para que
-	; muera ordenadamente. Asi un proceso CPU-bound (p. ej. test_mm) que no
-	; llama yield_cpu igual responde a Ctrl+C. Si no hay kill pendiente, es
-	; un no-op y retorna normal; el resultado ya quedo guardado en el stack y
-	; popState restaura todos los registros, asi que el clobber no molesta.
 	call process_exit_if_kill_pending
 
 	popState
 	iretq
 
 .invalid_syscall:
-	mov qword [rsp + 14*8], -1   ; rax = -1 indica syscall invalida
+	mov qword [rsp + 14*8], -1
 	popState
 	iretq
 
-;Zero Division Exception
+
 _exception0Handler:
 	exceptionHandler 0
 
-;Invalid Opcode Exception
+
 _exception6Handler:
 	exceptionHandler 6
 
@@ -285,8 +275,6 @@ haltcpu:
 	hlt
 	ret
 
-; yield: cede el CPU invocando por software la interrupcion del timer.
-; Reusa _irq00Handler, que hace el cambio de contexto.
 _yield:
 	int 20h
 	ret
@@ -294,9 +282,7 @@ _yield:
 SECTION .bss
 	aux: resq 1
 
-	; Buffer para el snapshot cuando se presiona ESC
 	user_snapshot: resq 20
 
-	; Flags de control
 	esc_pressed: resb 1
 	snapshot_ready: resb 1

@@ -3,7 +3,7 @@
 
 void shell(void);
 
-// Command handlers (all take argc/argv for consistency)
+
 void cmd_help(int argc, char *argv[]);
 void cmd_time(int argc, char *argv[]);
 void cmd_mem(int argc, char *argv[]);

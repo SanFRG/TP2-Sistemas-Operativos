@@ -32,7 +32,7 @@ GLOBAL create_process_piped_raw
 GLOBAL pipe_close
 GLOBAL set_color
 
-; Syscall numbers (índices en syscall_table)
+
 SYS_READ equ 0
 SYS_WRITE equ 1
 SYS_CLEAR equ 2
@@ -68,168 +68,192 @@ SYS_PIPE_CLOSE equ 31
 SYS_SET_COLOR equ 32
 SYS_COUNT equ 33
 
-; Macro para syscall via int 0x80
-; %1 = número de syscall
+
+
+; Syscall wrappers: args in rdi, rsi, rdx, rcx, r8, r9; return in rax.
 %macro SYSCALL 1
     mov rax, %1
     int 0x80
     ret
 %endmacro
 
-; int read(char* buffer, int max_len)
+
+
 ; rdi = buffer, rsi = max_len
 read:
     SYSCALL SYS_READ
 
-; int write(int fd, const char* str, int len)
-; rdi = fd, rsi = str, rdx = len
+
+
+; rdi = fd, rsi = buffer, rdx = length, rcx = color
 write:
     SYSCALL SYS_WRITE
 
-; int get_time(TimeInfo* time_info)
-; rdi = time_info pointer --> me parece que no es asi. tiene que ser void
+
+
 get_time:
     SYSCALL SYS_TIME
 
-; void clear_screen(uint32_t color)
-; rdi = color
+
+
 clear_screen:
     SYSCALL SYS_CLEAR
 
-; uint64_t get_ticks(void)
+
 get_ticks:
     SYSCALL SYS_TICKS
 
-; int get_key(void)
-; Returns scancode or 0 if no key
+
+
 get_key:
     SYSCALL SYS_GET_KEY
 
-; void sleep_ticks(int ticks)
+
+
 ; rdi = ticks
 sleep_ticks:
     SYSCALL SYS_SLEEP
 
-; uint64_t speaker_play(uint32_t frequency)
-; rdi = frequency (Hz)
+
+
+; rdi = frequency
 speaker_play:
     SYSCALL SYS_SPEAKER_PLAY
 
-; uint64_t speaker_stop(void)
+
 speaker_stop:
     SYSCALL SYS_SPEAKER_STOP
 
-; uint64_t get_regs(RegisterSnapshot* buffer)
-; rdi = buffer pointer
+
+
+; rdi = RegisterSnapshot *
 get_regs:
     SYSCALL SYS_GET_REGS
 
-; void *mem_alloc(uint64_t size)
+
+
 ; rdi = size
 mem_alloc:
     SYSCALL SYS_MEM_ALLOC
 
-; uint64_t mem_free(void *ptr)
+
+
 ; rdi = ptr
 mem_free:
     SYSCALL SYS_MEM_FREE
 
-; uint64_t mem_status(MemoryStatus *status)
-; rdi = status pointer
+
+
+; rdi = MemoryStatus *
 mem_status:
     SYSCALL SYS_MEM_STATUS
 
-; int64_t getpid(void)
+
 getpid:
     SYSCALL SYS_GETPID
 
-; int64_t kill_process(uint64_t pid)
+
+
 ; rdi = pid
 kill_process:
     SYSCALL SYS_KILL
 
-; int64_t block_process(uint64_t pid)
+
+
 ; rdi = pid
 block_process:
     SYSCALL SYS_BLOCK
 
-; int64_t unblock_process(uint64_t pid)
+
+
 ; rdi = pid
 unblock_process:
     SYSCALL SYS_UNBLOCK
 
-; int64_t nice_process(uint64_t pid, uint64_t new_priority)
+
+
 ; rdi = pid, rsi = priority
 nice_process:
     SYSCALL SYS_NICE
 
-; int64_t waitpid(int64_t pid)
+
+
 ; rdi = pid
 waitpid:
     SYSCALL SYS_WAITPID
 
-; int64_t ps(process_info *buffer, uint64_t max_entries)
-; rdi = buffer, rsi = max_entries
+
+
+; rdi = process_info *, rsi = max_entries
 ps:
     SYSCALL SYS_PS
 
-; int64_t yield_cpu(void)
+
 yield_cpu:
     SYSCALL SYS_YIELD
 
-; int64_t create_process(char *name, void (*entry_point)(void *), void *arg, uint64_t priority, uint64_t foreground)
-; rdi = name, rsi = entry_point, rdx = arg, rcx = priority, r8 = foreground
+
+
+; rdi = name, rsi = entry, rdx = arg, rcx = priority, r8 = foreground
 create_process:
     SYSCALL SYS_CREATE_PROCESS
 
-; void exit_process(int exit_code)
-; rdi = exit_code  (no retorna: el kernel termina el proceso)
+
+
+; rdi = exit_code
 exit_process:
     SYSCALL SYS_EXIT
 
-; int64_t check_ctrl_c(void)
+
 check_ctrl_c:
     SYSCALL SYS_CHECK_CTRL_C
 
-; int64_t loop_inc(void)
+
 loop_inc:
     SYSCALL SYS_LOOP_INC
 
-; int64_t sem_open(const char *name, uint64_t initial_value)
-; rdi = name, rsi = initial value
+
+
+; rdi = name, rsi = initial_value
 sem_open:
     SYSCALL SYS_SEM_OPEN
 
-; int64_t sem_close(const char *name)
+
+
 ; rdi = name
 sem_close:
     SYSCALL SYS_SEM_CLOSE
 
-; int64_t sem_wait(const char *name)
+
+
 ; rdi = name
 sem_wait:
     SYSCALL SYS_SEM_WAIT
 
-; int64_t sem_post(const char *name)
+
+
 ; rdi = name
 sem_post:
     SYSCALL SYS_SEM_POST
 
-; int64_t pipe_open(void)
+
 pipe_open:
     SYSCALL SYS_PIPE_OPEN
 
-; int64_t create_process_piped_raw(create_proc_piped_args_t *args)
-; rdi = pointer to args struct
+
+
+; rdi = packed args pointer
 create_process_piped_raw:
     SYSCALL SYS_CREATE_PROCESS_PIPED
 
-; int64_t pipe_close(int64_t pipe_id)
+
+
 ; rdi = pipe_id
 pipe_close:
     SYSCALL SYS_PIPE_CLOSE
 
-; void set_color(uint8_t attr)
-; rdi = attr (byte de atributo VGA)
+
+
+; rdi = VGA attr
 set_color:
     SYSCALL SYS_SET_COLOR

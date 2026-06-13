@@ -16,7 +16,7 @@
 
 #define USERLAND_CODE_ADDRESS 0x400000
 
-// RSP limpio al momento de llamar a userland por primera vez (definido en kernel.c)
+
 extern uint64_t userland_entry_rsp;
 
 static int exc_current_y = EXC_Y_START;
@@ -46,8 +46,8 @@ static void wait_for_enter(void) {
 }
 
 static void restart_userland(RegisterFrame *frame) {
-	// Resetear RIP al inicio del codigo de usuario y RSP al estado inicial
-	// del stack de userland para evitar corrupcion del call stack
+
+
 	frame->rip = USERLAND_CODE_ADDRESS;
 	frame->rsp = userland_entry_rsp;
 }

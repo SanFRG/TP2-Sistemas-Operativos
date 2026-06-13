@@ -12,8 +12,8 @@ typedef struct {
     int count;
     int write_open;
     int read_open;
-    int reader_pid;   /* PID blocked waiting to read, -1 if none */
-    int writer_pid;   /* PID blocked waiting to write, -1 if none */
+    int reader_pid;
+    int writer_pid;
 } pipe_t;
 
 static pipe_t pipe_table[MAX_PIPES];
@@ -56,7 +56,6 @@ int pipe_read(int pipe_id, char *buf, int max_len) {
     flags = pipe_lock_acquire();
     pipe_t *p = &pipe_table[idx];
 
-    /* block while buffer is empty and write end is still open */
     while (p->in_use && p->count == 0 && p->write_open) {
         p->reader_pid = process_get_current_pid();
         if (process_block_current() != 0) {
@@ -72,7 +71,6 @@ int pipe_read(int pipe_id, char *buf, int max_len) {
 
     if (!p->in_use) { pipe_lock_release(flags); return -1; }
 
-    /* drain up to max_len bytes from circular buffer */
     int n = 0;
     while (n < max_len && p->count > 0) {
         buf[n++] = p->buf[p->read_pos];
@@ -80,7 +78,6 @@ int pipe_read(int pipe_id, char *buf, int max_len) {
         p->count--;
     }
 
-    /* wake a blocked writer now that there is space */
     if (n > 0 && p->writer_pid >= 0) {
         int wpid = p->writer_pid;
         p->writer_pid = -1;
@@ -90,7 +87,7 @@ int pipe_read(int pipe_id, char *buf, int max_len) {
     }
 
     pipe_lock_release(flags);
-    return n;  /* 0 means EOF (count==0 and write end closed) */
+    return n;
 }
 
 int pipe_write(int pipe_id, const char *buf, int len) {
@@ -106,7 +103,6 @@ int pipe_write(int pipe_id, const char *buf, int len) {
     while (written < len) {
         if (!p->in_use || !p->read_open) break;
 
-        /* block while buffer is full */
         while (p->in_use && p->read_open && p->count == PIPE_BUFFER_SIZE) {
             p->writer_pid = process_get_current_pid();
             if (process_block_current() != 0) {
@@ -122,14 +118,12 @@ int pipe_write(int pipe_id, const char *buf, int len) {
 
         if (!p->in_use || !p->read_open) break;
 
-        /* fill as many bytes as fit */
         while (written < len && p->count < PIPE_BUFFER_SIZE) {
             p->buf[p->write_pos] = buf[written++];
             p->write_pos = (p->write_pos + 1) % PIPE_BUFFER_SIZE;
             p->count++;
         }
 
-        /* wake a blocked reader */
         if (p->reader_pid >= 0) {
             int rpid = p->reader_pid;
             p->reader_pid = -1;
@@ -155,7 +149,6 @@ void pipe_close_write_end(int pipe_id) {
 
     p->write_open = 0;
 
-    /* unblock reader so it can observe EOF */
     if (p->reader_pid >= 0) {
         int rpid = p->reader_pid;
         p->reader_pid = -1;
@@ -182,7 +175,6 @@ void pipe_close_read_end(int pipe_id) {
 
     p->read_open = 0;
 
-    /* unblock writer so it sees broken pipe */
     if (p->writer_pid >= 0) {
         int wpid = p->writer_pid;
         p->writer_pid = -1;
@@ -198,9 +190,6 @@ void pipe_close_read_end(int pipe_id) {
     pipe_lock_release(flags);
 }
 
-/* Cierra ambos extremos del pipe a la fuerza y libera el slot.
- * Se usa cuando la shell aborta un pipe a medio armar: desbloquea a
- * cualquier proceso que haya quedado esperando y recupera el recurso. */
 void pipe_close(int pipe_id) {
     pipe_close_read_end(pipe_id);
     pipe_close_write_end(pipe_id);
