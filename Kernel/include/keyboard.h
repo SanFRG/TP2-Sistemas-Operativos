@@ -24,6 +24,5 @@ char scancode_to_char(uint8_t scancode);
 
 uint8_t get_and_clear_ctrl_c(void);
 uint8_t get_and_clear_ctrl_d(void);
-int is_ctrl_pressed(void);
 
 #endif

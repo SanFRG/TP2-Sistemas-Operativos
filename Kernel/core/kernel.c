@@ -1,7 +1,6 @@
 #include <stdint.h>
 #include <lib.h>  
 #include <moduleLoader.h>
-#include <naiveConsole.h>
 #include <keyboard.h>
 #include <idtLoader.h>
 #include <interrupts.h>

@@ -421,62 +421,9 @@ static void process_wrapper(void (*fn)(void *), void *arg) {
     process_exit(0);
 }
 
-int process_create(const char *name, void (*function)(void *), void *arg, int priority, int foreground) {
-    uint64_t flags;
-    PCB *p;
-
-    if (name == NULL || function == NULL) {
-        return -1;
-    }
-
-    // Atomico respecto del scheduler: la busqueda de slot libre y la asignacion
-    // del pid no pueden ser interrumpidas (sino dos creaciones podrian tomar el
-    // mismo slot). Tambien reaprovechamos para reapear huerfanos muertos.
-    flags = _save_irq();
-    clean_orphan();
-
-    p = get_free_slot();
-    if (p == NULL) {
-        _restore_irq(flags);
-        return -1;
-    }
-
-    init_process_common(p, name, foreground ? 1 : 0, priority, current_pid);
-
-    p->stack_base = mm_alloc(STACK_SIZE);
-    if (p->stack_base == NULL) {
-        p->pid = 0; //si falla lo dejamos como slot libre
-        _restore_irq(flags);
-        return -1;
-    }
-
-    // El tope del stack debe cumplir el contrato del ABI System V AMD64:
-    // al entrar a la funcion del proceso debe valer rsp % 16 == 8.
-    // Alineamos el tope a 16 y restamos 8 (como si un 'call' hubiera
-    // empujado la direccion de retorno).
-    uint64_t top = (uint64_t)p->stack_base + STACK_SIZE;
-    top &= ~0xFULL; 
-    top -= 8;
-    // El proceso arranca en process_wrapper, que recibe (funcion, arg).
-    // Asi, si la funcion retorna, el wrapper llama a process_exit.
-    p->stack_pointer = setProcessStackASM((void *)process_wrapper, (void *)top,
-                                          (void *)function, arg);
-    p->base_pointer = p->stack_pointer;
-
-    PCB *parent = get_process_by_pid(current_pid); //p->hijo, parent->proceso actual
-    if (parent != NULL) {
-        parent->children_count++;
-    }
-
-    // Ultimo paso: con el PCB ya completo (stack incluido), lo hacemos
-    // elegible. Este unico store atomico "publica" el proceso; si un timer
-    // lo interrumpe antes, lo ve BLOCKED y no lo elige a medio armar.
-    p->state = READY;
-    int new_pid = p->pid;
-    _restore_irq(flags);
-    return new_pid;
-}
-
+// Crea un proceso con file descriptors a medida (fd_in/fd_out). Si fd_in o
+// fd_out son < 0 se conservan los estandar (stdin/stdout) que fija
+// init_process_common. process_create es el caso comun (fds estandar).
 int process_create_with_fds(const char *name, void (*fn)(void *), void *arg,
                              int priority, int foreground, int fd_in, int fd_out) {
     uint64_t flags;
@@ -484,6 +431,9 @@ int process_create_with_fds(const char *name, void (*fn)(void *), void *arg,
 
     if (name == NULL || fn == NULL) return -1;
 
+    // Atomico respecto del scheduler: la busqueda de slot libre y la asignacion
+    // del pid no pueden ser interrumpidas (sino dos creaciones podrian tomar el
+    // mismo slot). Tambien reaprovechamos para reapear huerfanos muertos.
     flags = _save_irq();
     clean_orphan();
 
@@ -500,25 +450,40 @@ int process_create_with_fds(const char *name, void (*fn)(void *), void *arg,
 
     p->stack_base = mm_alloc(STACK_SIZE);
     if (p->stack_base == NULL) {
-        p->pid = 0;
+        p->pid = 0; //si falla lo dejamos como slot libre
         _restore_irq(flags);
         return -1;
     }
 
+    // El tope del stack debe cumplir el contrato del ABI System V AMD64:
+    // al entrar a la funcion del proceso debe valer rsp % 16 == 8.
+    // Alineamos el tope a 16 y restamos 8 (como si un 'call' hubiera
+    // empujado la direccion de retorno).
     uint64_t top = (uint64_t)p->stack_base + STACK_SIZE;
     top &= ~0xFULL;
     top -= 8;
+    // El proceso arranca en process_wrapper, que recibe (funcion, arg).
+    // Asi, si la funcion retorna, el wrapper llama a process_exit.
     p->stack_pointer = setProcessStackASM((void *)process_wrapper, (void *)top,
                                           (void *)fn, arg);
     p->base_pointer = p->stack_pointer;
 
-    PCB *parent = get_process_by_pid(current_pid);
+    PCB *parent = get_process_by_pid(current_pid); //p->hijo, parent->proceso actual
     if (parent != NULL) parent->children_count++;
 
+    // Ultimo paso: con el PCB ya completo (stack incluido), lo hacemos
+    // elegible. Este unico store atomico "publica" el proceso; si un timer
+    // lo interrumpe antes, lo ve BLOCKED y no lo elige a medio armar.
     p->state = READY;
     int new_pid = p->pid;
     _restore_irq(flags);
     return new_pid;
+}
+
+int process_create(const char *name, void (*function)(void *), void *arg, int priority, int foreground) {
+    // Caso comun: fds estandar (stdin/stdout). -1/-1 le indica a
+    // process_create_with_fds que no sobrescriba los que fija init_process_common.
+    return process_create_with_fds(name, function, arg, priority, foreground, -1, -1);
 }
 
 // Peso (turnos por ronda) que le corresponde a un proceso segun su prioridad.

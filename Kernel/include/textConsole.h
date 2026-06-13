@@ -10,8 +10,5 @@ void tc_clear(void);
 void tc_set_color(uint8_t attr);
 void tc_put_char(char c);
 void tc_write(const char *str, uint64_t length);
-void tc_write_at(const char *str, uint64_t length, uint8_t x, uint8_t y);
-uint16_t tc_get_width(void);
-uint16_t tc_get_height(void);
 
 #endif

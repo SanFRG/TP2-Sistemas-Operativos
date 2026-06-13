@@ -1,12 +1,6 @@
 #include <time.h>
 #include <stdint.h>
 #include <interrupts.h>
-#define SECONDS_PER_MINUTE 60
-#define MINUTES_PER_HOUR   60
-#define HOURS_PER_DAY      24
-#define SECONDS_PER_HOUR   (SECONDS_PER_MINUTE * MINUTES_PER_HOUR)
-#define SECONDS_PER_DAY    (SECONDS_PER_HOUR * HOURS_PER_DAY)
-#define TICKS_PER_SECOND   18    // frecuencia del PIT
 
 static uint64_t ticks = 0;
 
@@ -23,10 +17,6 @@ void timer_handler() {
 
 uint64_t getTicks(){
     return ticks;
-}
-
-uint64_t seconds_elapsed() {
-    return ticks / TICKS_PER_SECOND;
 }
 
 void sleep(int ticksEsperar) {

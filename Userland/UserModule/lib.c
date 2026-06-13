@@ -12,15 +12,6 @@ int strlen(const char* str) {
     return len;
 }
 
-// String compare
-int strcmp(const char* s1, const char* s2) {
-    while (*s1 && (*s1 == *s2)) {
-        s1++;
-        s2++;
-    }
-    return *(unsigned char*)s1 - *(unsigned char*)s2;
-}
-
 // Helper: convert to lowercase
 static char to_lower(char c) {
     if (c >= 'A' && c <= 'Z') {
@@ -60,13 +51,6 @@ void println(const char* str) {
 // Print an error line in red, then restore the default color
 void print_error(const char* str) {
     set_color(COLOR_RED);
-    println(str);
-    set_color(COLOR_DEFAULT);
-}
-
-// Print a success line in green, then restore the default color
-void print_success(const char* str) {
-    set_color(COLOR_GREEN);
     println(str);
     set_color(COLOR_DEFAULT);
 }
@@ -174,12 +158,6 @@ void print2Digits(int num) {
     buffer[1] = '0' + (num % 10);
     buffer[2] = '\0';
     print(buffer);
-}
-
-char getChar() {
-    char c;
-    read(&c, 1);  // Read 1 character (blocks until Enter or buffer has input)
-    return c;
 }
 
 int64_t create_process_piped(char *name, void (*entry)(void *), void *arg,

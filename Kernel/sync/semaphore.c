@@ -308,9 +308,33 @@ int sem_wait(const char *name) {
     }
 }
 
+/* Despierta a los esperantes del semaforo 'idx' despues de incrementar su
+ * value. Debe invocarse con sem_table_lock tomado; SIEMPRE retorna con el lock
+ * liberado. Recorre la cola eligiendo al mas justo (dequeue_best_waiter) hasta
+ * lograr desbloquear a uno; saltea pids muertos (no deberian quedar en la cola
+ * porque process_kill los limpia, pero por las dudas). */
+static int sem_wake_waiters(int idx, uint64_t flags) {
+    semaphore_t *sem = &sem_table[idx];
+    while (sem->wait_count > 0) {
+        int pid = dequeue_best_waiter(sem);
+        sem_lock_release(flags);
+        if (process_unblock(pid) == 0) {
+            return 0;
+        }
+        flags = sem_lock_acquire();
+        if (!sem_table[idx].in_use) {
+            sem_lock_release(flags);
+            return -1;
+        }
+        sem = &sem_table[idx];
+    }
+
+    sem_lock_release(flags);
+    return 0;
+}
+
 int sem_post(const char *name) {
     int idx;
-    semaphore_t *sem;
     uint64_t flags;
 
     if (!valid_name(name)) {
@@ -324,31 +348,10 @@ int sem_post(const char *name) {
         return -1;
     }
 
-    sem = &sem_table[idx];
     process_sem_held_release(process_get_current_pid(), idx);  // ya no debo este token
-    sem->value++;   /* el token queda en value, no se entrega "en mano" */
+    sem_table[idx].value++;   /* el token queda en value, no se entrega "en mano" */
 
-    /* Despierta a un esperante para que reintente. Saltea pids muertos (no
-     * deberian quedar en la cola porque process_kill los limpia, pero por las
-     * dudas). value queda incrementado: si nadie lo toma ahora, lo tomara el
-     * proximo sem_wait. */
-    while (sem->wait_count > 0) {
-        int pid = dequeue_best_waiter(sem);
-        sem_lock_release(flags);
-        if (process_unblock(pid) == 0) {
-            return 0;
-        }
-        flags = sem_lock_acquire();
-        idx = find_semaphore(name);
-        if (idx < 0 || !sem_table[idx].in_use) {
-            sem_lock_release(flags);
-            return -1;
-        }
-        sem = &sem_table[idx];
-    }
-
-    sem_lock_release(flags);
-    return 0;
+    return sem_wake_waiters(idx, flags);
 }
 
 // Postea un semaforo por indice, sin tocar el tracking de tokens (lo usa
@@ -361,25 +364,8 @@ int sem_force_post_index(int sem_idx) {
         return -1;
     }
 
-    semaphore_t *sem = &sem_table[sem_idx];
-    sem->value++;
-
-    while (sem->wait_count > 0) {
-        int pid = dequeue_best_waiter(sem);
-        sem_lock_release(flags);
-        if (process_unblock(pid) == 0) {
-            return 0;
-        }
-        flags = sem_lock_acquire();
-        if (!sem_table[sem_idx].in_use) {
-            sem_lock_release(flags);
-            return -1;
-        }
-        sem = &sem_table[sem_idx];
-    }
-
-    sem_lock_release(flags);
-    return 0;
+    sem_table[sem_idx].value++;
+    return sem_wake_waiters(sem_idx, flags);
 }
 
 void sem_remove_waiter(int pid) {

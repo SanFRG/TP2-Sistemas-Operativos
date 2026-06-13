@@ -14,7 +14,6 @@ typedef struct {
 
 void timer_handler(void);
 uint64_t getTicks(void);
-uint64_t seconds_elapsed(void);
 Time getTime(void);
 void sleep(int ticksToWait);
 
