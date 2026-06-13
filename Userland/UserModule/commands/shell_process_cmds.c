@@ -3,18 +3,19 @@
 #include <lib.h>
 #include <stdint.h>
 
+#define LOOP_PRINT_INTERVAL 100000
+
 static void loop_process_entry(void *arg) {
     int fg = (arg != 0) ? 1 : 0;
     int pid = (int)getpid();
     uint64_t ticks = get_ticks();
     uint64_t last_print = ticks;
-    uint64_t interval = 100;
 
     while (1) {
         uint64_t count = loop_inc();
         ticks = get_ticks();
 
-        if (fg && ticks - last_print >= interval) {
+        if (fg && ticks - last_print >= LOOP_PRINT_INTERVAL) {
             print("[loop] PID: ");
             printInt(pid);
             print(" count: ");

@@ -240,7 +240,7 @@ int process_kill(int pid) {
     p->state = KILLED;
     p->exit_code = -1;
     p->kill_pending = 0;
-    sem_remove_waiter(pid);   // ya protege su seccion critica con _cli/_sti
+    sem_remove_waiter(pid);   // protege su seccion critica con lock atomico
     process_release_held_sems(p);  // devuelve tokens que tuviera tomados
     terminate_children(p->pid);  // sus hijos vivos mueren con el
     wake_parent_if_waiting(p);
@@ -292,8 +292,8 @@ void process_sem_held_release(int pid, int sem_idx) {
 
 // Devuelve (postea) todos los tokens que el proceso tenia tomados y no
 // devolvio. Se llama al morir, para restaurar la invariante de los semaforos y
-// que el resto de los procesos no quede en deadlock. Llamar con interrupciones
-// deshabilitadas o en contexto seguro; sem_force_post_index ya hace _cli/_sti.
+// que el resto de los procesos no quede en deadlock. sem_force_post_index
+// protege internamente su seccion critica con lock atomico.
 static void process_release_held_sems(PCB *p) {
     if (p == NULL) {
         return;

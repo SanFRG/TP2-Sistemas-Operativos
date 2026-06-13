@@ -31,9 +31,6 @@ GLOBAL pipe_open
 GLOBAL create_process_piped_raw
 GLOBAL pipe_close
 GLOBAL set_color
-GLOBAL _hlt
-GLOBAL _cli
-GLOBAL _sti
 
 ; Syscall numbers (índices en syscall_table)
 SYS_READ equ 0
@@ -236,17 +233,3 @@ pipe_close:
 ; rdi = attr (byte de atributo VGA)
 set_color:
     SYSCALL SYS_SET_COLOR
-
-_hlt:
-	sti
-	hlt
-	ret
-
-_cli:
-	cli
-	ret
-
-
-_sti:
-	sti
-	ret
