@@ -41,19 +41,19 @@ static void tp_endless_loop(void *arg) {
     }
 }
 
-void cmd_test_proc(int argc, char *argv[]) {
+void cmd_testproc(int argc, char *argv[]) {
     tp_rq rqs[MAX_TEST_PROC];
     int max_processes;
     int alive;
 
     if (argc != 2) {
-        println("Uso: test_proc <cantidad_de_procesos>");
+        println("Uso: testproc <cantidad_de_procesos>");
         return;
     }
 
     max_processes = atoi(argv[1]);
     if (max_processes <= 0 || max_processes > MAX_TEST_PROC) {
-        print("test_proc: cantidad debe estar entre 1 y ");
+        print("testproc: cantidad debe estar entre 1 y ");
         printInt(MAX_TEST_PROC);
         println(".");
         return;
@@ -68,7 +68,7 @@ void cmd_test_proc(int argc, char *argv[]) {
         for (int rq = 0; rq < max_processes; rq++) {
             rqs[rq].pid = create_process("endless_loop", tp_endless_loop, 0, 1, 0);
             if (rqs[rq].pid < 0) {
-                println("test_proc: ERROR creando proceso");
+                println("testproc: ERROR creando proceso");
 
                 for (int j = 0; j < rq; j++) {
                     if (rqs[j].state != TP_KILLED) {
@@ -90,7 +90,7 @@ void cmd_test_proc(int argc, char *argv[]) {
                         if (rqs[rq].state == TP_RUNNING ||
                             rqs[rq].state == TP_BLOCKED) {
                             if (kill_process(rqs[rq].pid) != 0) {
-                                println("test_proc: ERROR matando proceso");
+                                println("testproc: ERROR matando proceso");
                                 return;
                             }
                             rqs[rq].state = TP_KILLED;
@@ -101,7 +101,7 @@ void cmd_test_proc(int argc, char *argv[]) {
                     case 1:
                         if (rqs[rq].state == TP_RUNNING) {
                             if (block_process(rqs[rq].pid) != 0) {
-                                println("test_proc: ERROR bloqueando proceso");
+                                println("testproc: ERROR bloqueando proceso");
                                 return;
                             }
                             rqs[rq].state = TP_BLOCKED;
@@ -114,7 +114,7 @@ void cmd_test_proc(int argc, char *argv[]) {
             for (int rq = 0; rq < max_processes; rq++) {
                 if (rqs[rq].state == TP_BLOCKED && (tp_uniform(2) == 1)) {
                     if (unblock_process(rqs[rq].pid) != 0) {
-                        println("test_proc: ERROR desbloqueando proceso");
+                        println("testproc: ERROR desbloqueando proceso");
                         return;
                     }
                     rqs[rq].state = TP_RUNNING;

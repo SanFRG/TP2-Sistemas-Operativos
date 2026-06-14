@@ -76,12 +76,12 @@ static void sync_worker_entry(void *arg) {
 
 
 
-void cmd_test_sync(int argc, char *argv[]) {
+void cmd_testsync(int argc, char *argv[]) {
     sync_worker_args_t args[TEST_SYNC_MAX_PAIRS * 2];
     int64_t pids[TEST_SYNC_MAX_PAIRS * 2];
 
     if (argc != 4) {
-        println("Uso: test_sync <pares> <iteraciones> <use_sem: 0|1>");
+        println("Uso: testsync <pares> <iteraciones> <use_sem: 0|1>");
         return;
     }
 
@@ -90,13 +90,13 @@ void cmd_test_sync(int argc, char *argv[]) {
     int use_sem = atoi(argv[3]);
 
     if (pairs <= 0 || pairs > TEST_SYNC_MAX_PAIRS) {
-        print("test_sync: pares debe estar entre 1 y ");
+        print("testsync: pares debe estar entre 1 y ");
         printInt(TEST_SYNC_MAX_PAIRS);
         println(".");
         return;
     }
     if (parsed_iterations <= 0 || (use_sem != 0 && use_sem != 1)) {
-        println("Uso: test_sync <pares> <iteraciones> <use_sem: 0|1>");
+        println("Uso: testsync <pares> <iteraciones> <use_sem: 0|1>");
         return;
     }
     uint64_t iterations = (uint64_t)parsed_iterations;
@@ -125,7 +125,7 @@ void cmd_test_sync(int argc, char *argv[]) {
         pids[inc_idx] = create_process("sync_inc", sync_worker_entry, &args[inc_idx], 1, 0);
 
         if (pids[dec_idx] < 0 || pids[inc_idx] < 0) {
-            println("test_sync: error creando procesos.");
+            println("testsync: error creando procesos.");
             failed = 1;
         }
     }

@@ -117,21 +117,20 @@ Los comandos no distinguen mayusculas de minusculas.
 | `time` | ninguno | Muestra fecha y hora obtenidas desde el sistema. |
 | `mem` | ninguno | Muestra estado del memory manager: total, usado, libre, allocs/frees correctos y allocs fallidos. |
 | `pid` | ninguno | Muestra el PID del proceso actual. |
-| `ps` | ninguno | Lista PID, PPID, prioridad, foreground, estado, contador y nombre de cada proceso activo. |
+| `ps` | ninguno | Lista PID, PPID, prioridad, foreground, estado, stack pointer (SP), base pointer (BP), contador y nombre de cada proceso activo. |
 | `memtest` | ninguno | Prueba simple de `alloc/free` con bloques de 64 y 256 bytes. |
-| `test_mm` | `<maxmem>` | Stress test del memory manager. Pide bloques aleatorios hasta `<maxmem>` bytes, los escribe, verifica y libera en loop. Frenar con `Ctrl+C` o `kill`. |
-| `test_prio` | `<max_value>` | Lanza 3 procesos que cuentan hasta `<max_value>`; demuestra que la mayor prioridad imprime `DONE!` primero. |
-| `test_proc` | `<n>` | Crea, mata, bloquea y desbloquea `<n>` procesos (1-16) al azar en loop. Frenar con `Ctrl+C` o `kill`. |
+| `testmm` | `<maxmem>` | Stress test del memory manager. Pide bloques aleatorios hasta `<maxmem>` bytes, los escribe, verifica y libera en loop. Frenar con `Ctrl+C` o `kill`. |
+| `testprio` | `<max_value>` | Lanza 3 procesos que cuentan hasta `<max_value>`; demuestra que la mayor prioridad imprime `DONE!` primero. |
+| `testproc` | `<n>` | Crea, mata, bloquea y desbloquea `<n>` procesos (1-16) al azar en loop. Frenar con `Ctrl+C` o `kill`. |
 | `regs` | ninguno | Muestra el ultimo snapshot de registros guardado. |
 | `clear` | ninguno | Limpia la pantalla. |
-| `cerodiv` | ninguno | Dispara una excepcion de division por cero. |
-| `invalido` | ninguno | Dispara una excepcion de opcode invalido. |
 | `cancion` | ninguno | Reproduce una melodia por PC speaker. |
-| `loop` | `[prio] [fg]`, `-p <prio>`, `-b` | Crea un proceso `loop`. Prioridad entre `0` y `2`. `-b` lo lanza en background. |
+| `loop` | `[prio]`, `-p <prio>` (con `&` para background) | Crea un proceso `loop`. Prioridad entre `0` y `2` (default `1`). En foreground imprime su PID y contador periodicamente. |
 | `kill` | `<pid>` | Mata un proceso por PID. |
 | `nice` | `<pid> <prio>` | Cambia prioridad de un proceso. Prioridad valida: `0` a `2`. |
 | `block` | `<pid>` | Bloquea un proceso READY/RUNNING o desbloquea uno BLOCKED. |
-| `test_sync` | `<pares> <iteraciones> <use_sem: 0|1>` | Crea `<pares>` pares de procesos que incrementan/decrementan una variable global; con semaforo el resultado final es 0. |
+| `testsync` | `<pares> <iteraciones> <use_sem: 0|1>` | Crea `<pares>` pares de procesos que incrementan/decrementan una variable global; con semaforo el resultado final es 0. |
+| `mvar` | `<escritores> <lectores>` | Crea `<escritores>` y `<lectores>` (1 a 8 cada uno) sobre una MVar (1 celda) sincronizada con semaforos. |
 | `cat` | ninguno | Imprime el stdin tal como lo recibe. |
 | `wc` | ninguno | Cuenta la cantidad de lineas del input. |
 | `filter` | ninguno | Filtra las vocales del input (las elimina, pasa el resto). |
@@ -142,14 +141,13 @@ Los comandos no distinguen mayusculas de minusculas.
 | Test | Parametros | Descripcion |
 | --- | --- | --- |
 | `memtest` | ninguno | Test manual corto de reserva y liberacion. |
-| `test_mm` | `<maxmem>` | Test de stress del memory manager (loop infinito). Ej: `test_mm 100000`. |
-| `test_prio` | `<max_value>` | Test de prioridades: 3 procesos contadores, la mayor prioridad termina primero. Ej: `test_prio 1000000`. |
-| `test_proc` | `<n>` | Test de procesos: crea/mata/bloquea `<n>` procesos al azar. Ej: `test_proc 5`. |
-| `test_sync` | `<pares> <iteraciones> <use_sem: 0|1>` | Crea `<pares>` pares de procesos que modifican una variable compartida. Con `use_sem=1` sincroniza con semaforos (final 0). Ej: `test_sync 2 1000 1`. |
-| `cerodiv` | ninguno | Verifica manejo de excepcion de division por cero. |
-| `invalido` | ninguno | Verifica manejo de excepcion de opcode invalido. |
+| `testmm` | `<maxmem>` | Test de stress del memory manager (loop infinito). Ej: `testmm 100000`. |
+| `testprio` | `<max_value>` | Test de prioridades: 3 procesos contadores, la mayor prioridad termina primero. Ej: `testprio 1000000`. |
+| `testproc` | `<n>` | Test de procesos: crea/mata/bloquea `<n>` procesos al azar. Ej: `testproc 5`. |
+| `testsync` | `<pares> <iteraciones> <use_sem: 0|1>` | Crea `<pares>` pares de procesos que modifican una variable compartida. Con `use_sem=1` sincroniza con semaforos (final 0). Ej: `testsync 2 1000 1`. |
+| `mvar` | `<escritores> <lectores>` | Lanza `<escritores>` y `<lectores>` (1 a 8) que se sincronizan sobre una MVar de una celda con dos semaforos (`empty`/`full`). Ej: `mvar 2 3`. |
 
-Los cuatro tests de la catedra (`test_mm`, `test_prio`, `test_proc`, `test_sync`) estan portados desde `MemoryTest/` a la API de userland de este TP e integrados como comandos de la shell, en `Userland/UserModule/commands/shell_mem_cmds.c` (`test_mm`) y `Userland/UserModule/tests/` (`test_prio`, `test_proc`, `test_sync`). Los fuentes originales de catedra quedan en `MemoryTest/` solo como referencia; sus wrappers de `MemoryTest/syscall.c` son stubs y no se compilan en el kernel.
+Los cuatro tests de la catedra (`testmm`, `testprio`, `testproc`, `testsync`) estan portados desde `MemoryTest/` a la API de userland de este TP e integrados como comandos de la shell, en `Userland/UserModule/commands/shell_mem_cmds.c` (`testmm`) y `Userland/UserModule/tests/` (`testprio`, `testproc`, `testsync`). Los fuentes originales de catedra quedan en `MemoryTest/` solo como referencia; sus wrappers de `MemoryTest/syscall.c` son stubs y no se compilan en el kernel.
 
 ## Caracteres especiales
 
@@ -167,8 +165,8 @@ Ejemplos:
 
 ```txt
 loop &
-test_mm &
-test_sync 100 1 1 &
+testmm &
+testsync 100 1 1 &
 ```
 
 ### Pipes
@@ -205,7 +203,7 @@ El proceso izquierdo escribe en el pipe; el proceso derecho lee del pipe de form
 ```txt
 mem
 memtest
-test_mm
+testmm
 mem
 ```
 
@@ -215,11 +213,11 @@ Demuestra consulta de estado, reservas/liberaciones simples y stress test de mem
 
 ```txt
 ps
-loop -b
+loop &
 ps
 ```
 
-Crea un proceso `loop` en background y permite verlo en la tabla de procesos.
+Crea un proceso `loop` en background (con `&`) y permite verlo en la tabla de procesos.
 
 ### Foreground y Ctrl+C
 
@@ -232,8 +230,8 @@ El proceso corre en foreground. Para terminarlo, presionar `Ctrl+C`. La shell de
 ### Prioridades
 
 ```txt
-loop -b -p 0
-loop -b -p 2
+loop -p 0 &
+loop -p 2 &
 ps
 nice <pid> 1
 ps
@@ -244,7 +242,7 @@ Demuestra creacion de procesos con distintas prioridades y cambio posterior de p
 ### Bloqueo y desbloqueo
 
 ```txt
-loop -b
+loop &
 ps
 block <pid>
 ps
@@ -271,8 +269,8 @@ Escribi texto con vocales. `filter` elimina todas las vocales y escribe el resto
 ### Semaforos y sincronizacion
 
 ```txt
-test_sync 2 1000 0
-test_sync 2 1000 1
+testsync 2 1000 0
+testsync 2 1000 1
 ```
 
 El primer comando ejecuta la prueba sin semaforo y puede mostrar condicion de carrera. El segundo usa un semaforo nombrado para proteger la variable compartida; el valor final esperado es 0 (los incrementos y decrementos se cancelan).
@@ -280,7 +278,7 @@ El primer comando ejecuta la prueba sin semaforo y puede mostrar condicion de ca
 ### Kill y recoleccion
 
 ```txt
-loop -b
+loop &
 ps
 kill <pid>
 ps
@@ -288,14 +286,13 @@ ps
 
 Mata un proceso. Si el proceso matado es hijo de la shell, el comando hace `waitpid` para liberar su stack y su slot de PCB.
 
-### Excepciones
+### MVar (productor/consumidor)
 
 ```txt
-cerodiv
-invalido
+mvar 2 3
 ```
 
-Disparan excepciones para validar el manejo de errores de CPU.
+Lanza 2 escritores y 3 lectores que comparten una MVar de una sola celda. Los semaforos `empty`/`full` garantizan que cada valor escrito sea leido exactamente una vez antes de escribir el siguiente. Cada proceso imprime con un color distinto. Frenar matando los procesos con `kill` o `Ctrl+C`.
 
 ### EOF
 
@@ -320,7 +317,7 @@ En el prompt, presionar `Ctrl+D`. La shell interpreta EOF y vuelve a mostrar el 
 - Proceso idle para cuando no hay procesos READY.
 - `Ctrl+C` para interrumpir lectura o matar foreground.
 - `Ctrl+D` como EOF de lectura.
-- Tests `test_mm`, `test_prio`, `test_proc` y `test_sync` portados de catedra e integrados como comandos de la shell.
+- Tests `testmm`, `testprio`, `testproc` y `testsync` portados de catedra e integrados como comandos de la shell.
 - Tests unitarios de host para ambos memory managers.
 - Comandos `cat`, `wc`, `filter`: implementados.
 - Comando `mvar`: lectores/escritores sobre una MVar sincronizada con semaforos.
@@ -331,7 +328,7 @@ En el prompt, presionar `Ctrl+D`. La shell interpreta EOF y vuelve a mostrar el 
 - Solo se soporta un pipe por linea de comando (`cmd1 | cmd2`). No hay pipes encadenados.
 - `stderr` (fd=2) siempre va a pantalla aunque fd[2] este redirigido.
 - `PCB.fd[2]` (stderr) puede redirigirse a un pipe internamente, pero los mensajes de error del kernel siempre van a pantalla.
-- El scheduler usa Round Robin circular ponderado; la prioridad modifica la frecuencia de seleccion con pesos `{1, 3, 9}`.
+- El scheduler usa Round Robin circular ponderado por creditos: al inicio de cada ronda cada proceso recibe `{1, 3, 9}` creditos segun su prioridad (`0`/`1`/`2`), y cada tick de seleccion consume un credito. Un proceso de mayor prioridad obtiene mas turnos consecutivos por ronda; cuando ningun proceso READY tiene creditos, se recargan todos.
 - `kill` no permite matar el proceso actual ni el proceso idle.
 - Los procesos en estado `KILLED` no se listan en `ps`.
 - Un proceso `TERMINATED` o `KILLED` cuyo padre vivo nunca llama a `waitpid` puede quedar ocupando un slot. Si el padre muere, el scheduler intenta recolectar huerfanos terminados.

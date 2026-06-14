@@ -172,7 +172,7 @@ void cmd_memtest(int argc, char *argv[]) {
     print("\n");
 }
 
-void cmd_test_mm(int argc, char *argv[]) {
+void cmd_testmm(int argc, char *argv[]) {
     mm_rq_t reqs[MAX_MM_BLOCKS];
     uint32_t total;
     uint8_t rq;
@@ -180,13 +180,13 @@ void cmd_test_mm(int argc, char *argv[]) {
     uint32_t max_memory;
 
     if (argc != 2) {
-        println("Uso: test_mm <memoria_maxima_en_bytes>");
+        println("Uso: testmm <memoria_maxima_en_bytes>");
         return;
     }
 
     int parsed = atoi(argv[1]);
     if (parsed <= 0) {
-        println("Uso: test_mm <memoria_maxima_en_bytes>");
+        println("Uso: testmm <memoria_maxima_en_bytes>");
         return;
     }
     max_memory = (uint32_t)parsed;
@@ -218,7 +218,7 @@ void cmd_test_mm(int argc, char *argv[]) {
         for (i = 0; i < rq; i++) {
             if (reqs[i].address != 0 &&
                 !mm_check(reqs[i].address, (uint8_t)i, reqs[i].size)) {
-                println("test_mm ERROR: corrupcion detectada");
+                println("testmm ERROR: corrupcion detectada");
                 return;
             }
         }

@@ -145,7 +145,11 @@ void cmd_ps(int argc, char *argv[]) {
         ps_print_hex_field(entries[i].base_pointer, 13);
         print("  ");
 
-        shell_print_int_padded((int)entries[i].loop_counter, 5);
+        if (strcasecmp(entries[i].name, "loop") == 0) {
+            shell_print_int_padded((int)entries[i].loop_counter, 5);
+        } else {
+            print("    -");
+        }
         print("  ");
         println(entries[i].name);
     }

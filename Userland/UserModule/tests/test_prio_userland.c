@@ -34,17 +34,17 @@ static void zero_to_max(void *arg) {
     println(" DONE!");
 }
 
-void cmd_test_prio(int argc, char *argv[]) {
+void cmd_testprio(int argc, char *argv[]) {
     int64_t pids[TP_TOTAL_PROCESSES];
 
     if (argc != 2) {
-        println("Uso: test_prio <max_value>");
+        println("Uso: testprio <max_value>");
         return;
     }
 
     int parsed = atoi(argv[1]);
     if (parsed <= 0) {
-        println("Uso: test_prio <max_value>");
+        println("Uso: testprio <max_value>");
         return;
     }
     tp_max_value = (uint64_t)parsed;
@@ -95,5 +95,5 @@ void cmd_test_prio(int argc, char *argv[]) {
         waitpid(pids[i]);
     }
 
-    println("test_prio: fin.");
+    println("testprio: fin.");
 }
