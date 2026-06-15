@@ -10,8 +10,14 @@
 #Object files
 *.o
 
+#Host test binaries
+*.out
+
 #Bash history
 .bash_history
 
 #Build artifacts (marcador del memory manager elegido)
-Kernel/.mm_memoryManager
+Kernel/.mm_*
+
+#Editor / tooling
+.zed/
