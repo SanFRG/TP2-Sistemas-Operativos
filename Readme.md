@@ -122,62 +122,43 @@ Los comandos no distinguen mayusculas de minusculas.
 | `testmm` | `<maxmem>` | Stress test del memory manager. Pide bloques aleatorios hasta `<maxmem>` bytes, los escribe, verifica y libera en loop. Frenar con `Ctrl+C` o `kill`. |
 | `testprio` | `<max_value>` | Lanza 3 procesos que cuentan hasta `<max_value>`; demuestra que la mayor prioridad imprime `DONE!` primero. |
 | `testproc` | `<n>` | Crea, mata, bloquea y desbloquea `<n>` procesos (1-16) al azar en loop. Frenar con `Ctrl+C` o `kill`. |
+| `testsync` | `<pares> <iteraciones> <use_sem: 0\|1>` | Crea `<pares>` pares de procesos que incrementan/decrementan una variable global; con semaforo el resultado final es 0. |
+| `mvar` | `<escritores> <lectores>` | Crea `<escritores>` y `<lectores>` (1 a 8 cada uno) sobre una MVar (1 celda) sincronizada con semaforos. |
 | `regs` | ninguno | Muestra el ultimo snapshot de registros guardado. |
 | `clear` | ninguno | Limpia la pantalla. |
-| `cancion` | ninguno | Reproduce una melodia por PC speaker. |
 | `loop` | `[prio]`, `-p <prio>` (con `&` para background) | Crea un proceso `loop`. Prioridad entre `0` y `2` (default `1`). En foreground imprime su PID y contador periodicamente. |
 | `kill` | `<pid>` | Mata un proceso por PID. |
 | `nice` | `<pid> <prio>` | Cambia prioridad de un proceso. Prioridad valida: `0` a `2`. |
 | `block` | `<pid>` | Bloquea un proceso READY/RUNNING o desbloquea uno BLOCKED. |
-| `testsync` | `<pares> <iteraciones> <use_sem: 0|1>` | Crea `<pares>` pares de procesos que incrementan/decrementan una variable global; con semaforo el resultado final es 0. |
-| `mvar` | `<escritores> <lectores>` | Crea `<escritores>` y `<lectores>` (1 a 8 cada uno) sobre una MVar (1 celda) sincronizada con semaforos. |
 | `cat` | ninguno | Imprime el stdin tal como lo recibe. |
 | `wc` | ninguno | Cuenta la cantidad de lineas del input. |
 | `filter` | ninguno | Filtra las vocales del input (las elimina, pasa el resto). |
 | `exit` | ninguno | Cierra la shell y vuelve al kernel. |
 
-### Tests disponibles desde la shell
+### Tests de catedra
 
-| Test | Parametros | Descripcion |
-| --- | --- | --- |
-| `memtest` | ninguno | Test manual corto de reserva y liberacion. |
-| `testmm` | `<maxmem>` | Test de stress del memory manager (loop infinito). Ej: `testmm 100000`. |
-| `testprio` | `<max_value>` | Test de prioridades: 3 procesos contadores, la mayor prioridad termina primero. Ej: `testprio 1000000`. |
-| `testproc` | `<n>` | Test de procesos: crea/mata/bloquea `<n>` procesos al azar. Ej: `testproc 5`. |
-| `testsync` | `<pares> <iteraciones> <use_sem: 0|1>` | Crea `<pares>` pares de procesos que modifican una variable compartida. Con `use_sem=1` sincroniza con semaforos (final 0). Ej: `testsync 2 1000 1`. |
-| `mvar` | `<escritores> <lectores>` | Lanza `<escritores>` y `<lectores>` (1 a 8) que se sincronizan sobre una MVar de una celda con dos semaforos (`empty`/`full`). Ej: `mvar 2 3`. |
+Los cuatro tests de la catedra (`testmm`, `testprio`, `testproc`, `testsync`) estan portados desde `MemoryTest/` a la API de userland de este TP e integrados como comandos de la shell (ver tabla anterior), en `Userland/UserModule/commands/shell_mem_cmds.c` (`testmm`) y `Userland/UserModule/tests/` (`testprio`, `testproc`, `testsync`). Los fuentes originales de catedra quedan en `MemoryTest/` solo como referencia; sus wrappers de `MemoryTest/syscall.c` son stubs y no se compilan en el kernel.
 
-Los cuatro tests de la catedra (`testmm`, `testprio`, `testproc`, `testsync`) estan portados desde `MemoryTest/` a la API de userland de este TP e integrados como comandos de la shell, en `Userland/UserModule/commands/shell_mem_cmds.c` (`testmm`) y `Userland/UserModule/tests/` (`testprio`, `testproc`, `testsync`). Los fuentes originales de catedra quedan en `MemoryTest/` solo como referencia; sus wrappers de `MemoryTest/syscall.c` son stubs y no se compilan en el kernel.
+Ejemplos de invocacion: `testmm 100000`, `testprio 1000000`, `testproc 5`, `testsync 2 1000 1`, `mvar 2 3`.
 
 ## Caracteres especiales
 
-### Background
+### Foreground y background
 
-El caracter requerido para background es:
+Por defecto los comandos corren en foreground: la shell se bloquea hasta que el proceso termina. Para terminar un proceso en foreground se usa `Ctrl+C`; la shell detecta el atajo, llama a `kill` sobre el PID foreground y luego hace `waitpid`.
 
-```txt
-&
-```
-
-Estado actual: implementado. Cualquier comando seguido de `&` se ejecuta en background. La shell muestra el PID del proceso y devuelve el prompt inmediatamente.
-
-Ejemplos:
+Agregando `&` al final, el comando corre en background: la shell muestra el PID del proceso y devuelve el prompt inmediatamente.
 
 ```txt
-loop &
+loop              # foreground: se termina con Ctrl+C
+loop &            # background: imprime el PID y vuelve al prompt
 testmm &
 testsync 100 1 1 &
 ```
 
 ### Pipes
 
-El caracter requerido para pipes es:
-
-```txt
-|
-```
-
-Conecta stdout del comando izquierdo con stdin del comando derecho. Ejemplos:
+El caracter `|` conecta el stdout del comando izquierdo con el stdin del derecho. El proceso izquierdo escribe en el pipe; el derecho lee de forma bloqueante. Cuando el escritor termina, el lector recibe EOF y finaliza.
 
 ```txt
 cat | wc               # cat envia lineas a wc, wc cuenta las lineas
@@ -187,7 +168,7 @@ loop | wc              # loop genera lineas, wc las cuenta
 time | cat             # time escribe fecha/hora, cat lo reenvia a pantalla
 ```
 
-El proceso izquierdo escribe en el pipe; el proceso derecho lee del pipe de forma bloqueante. Cuando el escritor termina, el lector recibe EOF y finaliza.
+Para probarlo interactivamente con `cat | wc` o `cat | filter`: escribi varias lineas y presiona `Ctrl+D`; `cat` cierra el pipe y el comando derecho procesa lo recibido (`wc` imprime la cantidad de lineas, `filter` muestra el texto sin vocales).
 
 ## Atajos de teclado
 
@@ -219,14 +200,6 @@ ps
 
 Crea un proceso `loop` en background (con `&`) y permite verlo en la tabla de procesos.
 
-### Foreground y Ctrl+C
-
-```txt
-loop
-```
-
-El proceso corre en foreground. Para terminarlo, presionar `Ctrl+C`. La shell detecta el atajo, llama a `kill` sobre el PID foreground y luego hace `waitpid`.
-
 ### Prioridades
 
 ```txt
@@ -251,20 +224,6 @@ ps
 ```
 
 El primer `block` pasa el proceso a BLOCKED. El segundo lo desbloquea y vuelve a READY.
-
-### Pipes
-
-```txt
-cat | wc
-```
-
-Escribi varias lineas de texto. Al presionar `Ctrl+D`, `cat` termina y cierra el pipe. `wc` imprime la cantidad de lineas recibidas.
-
-```txt
-cat | filter
-```
-
-Escribi texto con vocales. `filter` elimina todas las vocales y escribe el resto en pantalla. `Ctrl+D` para terminar.
 
 ### Semaforos y sincronizacion
 
@@ -300,39 +259,37 @@ En el prompt, presionar `Ctrl+D`. La shell interpreta EOF y vuelve a mostrar el 
 
 ## Requerimientos implementados
 
-- Memory manager por defecto con interfaz `mm_alloc`, `mm_free` y `mm_get_status`.
-- Buddy allocator seleccionable con `make buddy`.
-- Syscalls de memoria y comando `mem`.
-- Creacion de procesos con PCB, PID, stack propio, estado, prioridad, PPID y file descriptors basicos.
-- Context switch y scheduler Round Robin ponderado por prioridad.
-- Comandos `ps`, `kill`, `nice`, `block` y `loop`.
-- `waitpid` bloqueante para hijos: el padre queda BLOCKED hasta que el hijo termina.
-- Semaforos nombrados con `sem_open`, `sem_close`, `sem_wait` y `sem_post`, protegidos con un lock atomico basado en `xchg`.
-- Bloqueo de procesos en `sem_wait` sin busy waiting cuando no hay recursos disponibles.
-- Pipes bloqueantes con buffer circular: `pipe_open`, `pipe_read`, `pipe_write`, cierre automatico por exit.
-- Redireccion de `write`/`read` por file descriptors: fd[0]/fd[1] del PCB apuntan a teclado/pantalla (valores 0/1) o a un pipe (valor >= 3).
-- Comandos `cat`, `wc` y `filter` que operan sobre stdin/stdout y funcionan en pipelines.
-- Soporte de `cmd1 | cmd2` en la shell: crea pipe, lanza ambos procesos con fds correctos y espera a que terminen.
-- Soporte de `&` para ejecutar cualquier comando en background.
-- Proceso idle para cuando no hay procesos READY.
-- `Ctrl+C` para interrumpir lectura o matar foreground.
-- `Ctrl+D` como EOF de lectura.
-- Tests `testmm`, `testprio`, `testproc` y `testsync` portados de catedra e integrados como comandos de la shell.
-- Tests unitarios de host para ambos memory managers.
-- Comandos `cat`, `wc`, `filter`: implementados.
-- Comando `mvar`: lectores/escritores sobre una MVar sincronizada con semaforos.
+Resumen de cobertura de la consigna. El detalle de uso de cada item esta en las secciones anteriores.
+
+- **Memory manager**: implementacion por defecto (free-list) y buddy allocator seleccionable con `make buddy`, ambos con la interfaz `mm_alloc` / `mm_free` / `mm_get_status`. Tests unitarios de host para los dos.
+- **Procesos**: creacion con PCB (PID, PPID, stack propio, estado, prioridad, file descriptors), context switch, scheduler Round Robin ponderado por prioridad y proceso idle.
+- **`waitpid`** bloqueante: el padre queda BLOCKED hasta que el hijo termina.
+- **Semaforos** nombrados (`sem_open`, `sem_close`, `sem_wait`, `sem_post`) con lock atomico basado en `xchg` y bloqueo sin busy waiting.
+- **Pipes** bloqueantes con buffer circular (`pipe_open`, `pipe_read`, `pipe_write`) y cierre automatico por exit, con redireccion de `read`/`write` por file descriptors.
+- **Shell**: pipelines `cmd1 | cmd2`, ejecucion en background con `&`, y `Ctrl+C` / `Ctrl+D`.
+- **Tests de catedra** (`testmm`, `testprio`, `testproc`, `testsync`) portados e integrados como comandos.
+
+## Requerimientos faltantes o parcialmente implementados
+
+- No hay requerimientos faltantes: todos los requerimientos obligatorios del enunciado estan implementados
+- Parcial: los pipes conectan exactamente 2 procesos por linea (`p1 | p2`); no se soporta encadenar mas de dos (`p1 | p2 | p3`)
 
 ## Limitaciones
 
-- El buffer de cada pipe es de 256 bytes; escrituras mayores bloquean hasta que el lector consuma espacio.
-- Solo se soporta un pipe por linea de comando (`cmd1 | cmd2`). No hay pipes encadenados.
-- `stderr` (fd=2) siempre va a pantalla aunque fd[2] este redirigido.
-- `PCB.fd[2]` (stderr) puede redirigirse a un pipe internamente, pero los mensajes de error del kernel siempre van a pantalla.
-- El scheduler usa Round Robin circular ponderado por creditos: al inicio de cada ronda cada proceso recibe `{1, 3, 9}` creditos segun su prioridad (`0`/`1`/`2`), y cada tick de seleccion consume un credito. Un proceso de mayor prioridad obtiene mas turnos consecutivos por ronda; cuando ningun proceso READY tiene creditos, se recargan todos.
+- La redireccion por pipe solo se aplica a stdin (`fd[0]`) y stdout (`fd[1]`); `fd[2]` (stderr) nunca se redirige, asi que los mensajes de error siempre van a pantalla.
 - `kill` no permite matar el proceso actual ni el proceso idle.
 - Los procesos en estado `KILLED` no se listan en `ps`.
 - Un proceso `TERMINATED` o `KILLED` cuyo padre vivo nunca llama a `waitpid` puede quedar ocupando un slot. Si el padre muere, el scheduler intenta recolectar huerfanos terminados.
 - `Ctrl+D` no termina la shell; solo devuelve EOF para la lectura actual.
-- `regs` depende de que exista un snapshot de registros previo; si no lo hay, informa error.
-- La entrada de la shell soporta tokenizacion simple por espacios. No hay comillas, escaping ni multiples comandos por linea.
-- `run.sh` asume backend de audio ALSA para el PC speaker.
+- Los pipes son unidireccionales y conectan solo 2 procesos por linea de comando.
+
+## Citas y uso de IA
+
+### Codigo de base y de terceros
+
+- El proyecto parte de la base **x64BareBones / Pure64 / BMFS** provista por la catedra (bootloader y esqueleto de kernel/userland).
+- Los tests `testmm`, `testprio`, `testproc` y `testsync` estan adaptados de los tests provistos por la catedra (`MemoryTest/`) a la API de userland de este TP.
+
+### Uso de inteligencia artificial
+
+Se utilizo un asistente de IA para generar un plan de tareas inicial y para entender conceptos que no nos habian quedado del todo claros.

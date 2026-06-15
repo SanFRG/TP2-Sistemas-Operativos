@@ -5,10 +5,8 @@
 
 int RunAllTests(void) {
 	CuString *output = CuStringNew();
-	CuSuite *suite = CuSuiteNew();
+	CuSuite *suite = getMemoryManagerTestSuite();
 	int failCount;
-
-	CuSuiteAddSuite(suite, getMemoryManagerTestSuite());
 
 	CuSuiteRun(suite);
 
