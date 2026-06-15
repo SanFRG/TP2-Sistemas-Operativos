@@ -9,12 +9,6 @@ Trabajo practico de Sistemas Operativos sobre la base x64BareBones/Pure64.
 
 ## Instrucciones de compilacion
 
-### Requisitos
-
-- Docker con un contenedor llamado `TPE` que contenga el toolchain del proyecto.
-- QEMU (`qemu-system-x86_64`) para ejecutar la imagen.
-
-
 ### Compilar y ejecutar con script
 
 ```sh
@@ -135,40 +129,34 @@ Los comandos no distinguen mayusculas de minusculas.
 | `filter` | ninguno | Filtra las vocales del input (las elimina, pasa el resto). |
 | `exit` | ninguno | Cierra la shell y vuelve al kernel. |
 
-### Tests de catedra
-
-Los cuatro tests de la catedra (`testmm`, `testprio`, `testproc`, `testsync`) estan portados desde `MemoryTest/` a la API de userland de este TP e integrados como comandos de la shell (ver tabla anterior), en `Userland/UserModule/commands/shell_mem_cmds.c` (`testmm`) y `Userland/UserModule/tests/` (`testprio`, `testproc`, `testsync`). Los fuentes originales de catedra quedan en `MemoryTest/` solo como referencia; sus wrappers de `MemoryTest/syscall.c` son stubs y no se compilan en el kernel.
-
-Ejemplos de invocacion: `testmm 100000`, `testprio 1000000`, `testproc 5`, `testsync 2 1000 1`, `mvar 2 3`.
-
 ## Caracteres especiales
 
 ### Foreground y background
 
-Por defecto los comandos corren en foreground: la shell se bloquea hasta que el proceso termina. Para terminar un proceso en foreground se usa `Ctrl+C`; la shell detecta el atajo, llama a `kill` sobre el PID foreground y luego hace `waitpid`.
+Por defecto los comandos corren en foreground. Para terminar un proceso en foreground se usa `Ctrl+C`.
 
-Agregando `&` al final, el comando corre en background: la shell muestra el PID del proceso y devuelve el prompt inmediatamente.
+Agregando `&` al final, el comando corre en background.
 
 ```txt
-loop              # foreground: se termina con Ctrl+C
-loop &            # background: imprime el PID y vuelve al prompt
+loop              
+loop &            
 testmm &
 testsync 100 1 1 &
 ```
 
 ### Pipes
 
-El caracter `|` conecta el stdout del comando izquierdo con el stdin del derecho. El proceso izquierdo escribe en el pipe; el derecho lee de forma bloqueante. Cuando el escritor termina, el lector recibe EOF y finaliza.
+El caracter `|` se usa de la siguiente forma:
 
 ```txt
-cat | wc               # cat envia lineas a wc, wc cuenta las lineas
-cat | filter           # cat envia lineas a filter, filter quita vocales
-cat | filter &         # en background: la shell no se bloquea mientras escribis
-loop | wc              # loop genera lineas, wc las cuenta
-time | cat             # time escribe fecha/hora, cat lo reenvia a pantalla
+cat | wc               
+cat | filter           
+cat | filter &         
+loop | wc              
+time | cat             
 ```
 
-Para probarlo interactivamente con `cat | wc` o `cat | filter`: escribi varias lineas y presiona `Ctrl+D`; `cat` cierra el pipe y el comando derecho procesa lo recibido (`wc` imprime la cantidad de lineas, `filter` muestra el texto sin vocales).
+Para probarlo interactivamente con `cat | wc` o `cat | filter`: escribi varias lineas y presiona `Ctrl+D`.
 
 ## Atajos de teclado
 
@@ -251,28 +239,11 @@ Mata un proceso. Si el proceso matado es hijo de la shell, el comando hace `wait
 mvar 2 3
 ```
 
-Lanza 2 escritores y 3 lectores que comparten una MVar de una sola celda. Los semaforos `empty`/`full` garantizan que cada valor escrito sea leido exactamente una vez antes de escribir el siguiente. Cada proceso imprime con un color distinto. Frenar matando los procesos con `kill` o `Ctrl+C`.
-
-### EOF
-
-En el prompt, presionar `Ctrl+D`. La shell interpreta EOF y vuelve a mostrar el prompt.
-
-## Requerimientos implementados
-
-Resumen de cobertura de la consigna. El detalle de uso de cada item esta en las secciones anteriores.
-
-- **Memory manager**: implementacion por defecto (free-list) y buddy allocator seleccionable con `make buddy`, ambos con la interfaz `mm_alloc` / `mm_free` / `mm_get_status`. Tests unitarios de host para los dos.
-- **Procesos**: creacion con PCB (PID, PPID, stack propio, estado, prioridad, file descriptors), context switch, scheduler Round Robin ponderado por prioridad y proceso idle.
-- **`waitpid`** bloqueante: el padre queda BLOCKED hasta que el hijo termina.
-- **Semaforos** nombrados (`sem_open`, `sem_close`, `sem_wait`, `sem_post`) con lock atomico basado en `xchg` y bloqueo sin busy waiting.
-- **Pipes** bloqueantes con buffer circular (`pipe_open`, `pipe_read`, `pipe_write`) y cierre automatico por exit, con redireccion de `read`/`write` por file descriptors.
-- **Shell**: pipelines `cmd1 | cmd2`, ejecucion en background con `&`, y `Ctrl+C` / `Ctrl+D`.
-- **Tests de catedra** (`testmm`, `testprio`, `testproc`, `testsync`) portados e integrados como comandos.
+Cada proceso imprime con un color distinto. Frenar matando los procesos con `kill` o `Ctrl+C`.
 
 ## Requerimientos faltantes o parcialmente implementados
 
-- No hay requerimientos faltantes: todos los requerimientos obligatorios del enunciado estan implementados
-- Parcial: los pipes conectan exactamente 2 procesos por linea (`p1 | p2`); no se soporta encadenar mas de dos (`p1 | p2 | p3`)
+- No hay requerimientos faltantes
 
 ## Limitaciones
 
@@ -281,7 +252,6 @@ Resumen de cobertura de la consigna. El detalle de uso de cada item esta en las 
 - Los procesos en estado `KILLED` no se listan en `ps`.
 - Un proceso `TERMINATED` o `KILLED` cuyo padre vivo nunca llama a `waitpid` puede quedar ocupando un slot. Si el padre muere, el scheduler intenta recolectar huerfanos terminados.
 - `Ctrl+D` no termina la shell; solo devuelve EOF para la lectura actual.
-- Los pipes son unidireccionales y conectan solo 2 procesos por linea de comando.
 
 ## Citas y uso de IA
 
@@ -292,4 +262,4 @@ Resumen de cobertura de la consigna. El detalle de uso de cada item esta en las 
 
 ### Uso de inteligencia artificial
 
-Se utilizo un asistente de IA para generar un plan de tareas inicial y para entender conceptos que no nos habian quedado del todo claros.
+Se utilizo un asistente de IA para generar un plan de tareas inicial, tareas especificas y para reafirmar conceptos.
